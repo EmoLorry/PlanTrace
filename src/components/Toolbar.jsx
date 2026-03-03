@@ -27,12 +27,12 @@ export default function Toolbar({ selectedDate, onAddTask }) {
             {/* Date Display */}
             <div className="flex items-center justify-between mb-5">
                 <div>
-                    <h2 className="text-2xl font-semibold text-white/90 tracking-tight">
+                    <h2 className="text-2xl font-semibold text-text-primary tracking-tight">
                         {getFullDateDisplay(selectedDate)}
                     </h2>
                     {isToday(selectedDate) && (
-                        <span className="inline-block mt-1 text-[11px] font-semibold uppercase tracking-widest
-              text-accent bg-accent/10 px-2 py-0.5 rounded-full">
+                        <span className="inline-block mt-1.5 text-[11px] font-semibold uppercase tracking-widest
+                            text-accent bg-accent-light px-2.5 py-0.5 rounded-full">
                             Current Day
                         </span>
                     )}
@@ -41,10 +41,12 @@ export default function Toolbar({ selectedDate, onAddTask }) {
 
             {/* Add Task */}
             <form onSubmit={handleSubmit} className="relative">
-                <div className={`glass-subtle flex items-center gap-2 px-4 py-3 transition-all duration-200
-          ${isExpanded ? 'ring-1 ring-accent/30 bg-white/8!' : 'hover:bg-white/8'}`}
+                <div
+                    className={`glass-subtle flex items-center gap-2.5 px-4 py-3 transition-all duration-200
+                        ${isExpanded ? 'ring-1 ring-accent/25' : ''}`}
+                    style={isExpanded ? { background: 'var(--th-card-selected)' } : undefined}
                 >
-                    <Plus size={18} className="text-white/30 shrink-0" />
+                    <Plus size={18} className="text-text-muted shrink-0" />
                     <input
                         type="text"
                         placeholder="Add a new task..."
@@ -53,14 +55,14 @@ export default function Toolbar({ selectedDate, onAddTask }) {
                         onFocus={() => setIsExpanded(true)}
                         onBlur={() => !input && setIsExpanded(false)}
                         onKeyDown={handleKeyDown}
-                        className="flex-1 bg-transparent outline-none text-sm text-white/90
-              placeholder:text-white/25 font-light"
+                        className="flex-1 bg-transparent outline-none text-sm text-text-primary
+                            placeholder:text-text-muted font-light"
                     />
                     {isExpanded && input.trim() && (
                         <button
                             type="submit"
-                            className="px-3 py-1 rounded-lg bg-accent/20 text-accent text-xs font-medium
-                hover:bg-accent/30 transition-colors shrink-0"
+                            className="px-3 py-1 rounded-lg bg-accent text-white text-xs font-medium
+                                hover:bg-accent/85 transition-colors shrink-0"
                         >
                             Add
                         </button>

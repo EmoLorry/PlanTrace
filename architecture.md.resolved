@@ -1,0 +1,278 @@
+# PlanTrace 系统架构指南
+
+## 全局架构图
+
+```mermaid
+graph TB
+    subgraph Entry["入口"]
+        main["main.jsx"]
+        App["App.jsx (指挥中心)"]
+        main --> App
+    end
+
+    subgraph Theme["主题层"]
+        TC["ThemeContext.jsx"]
+        TS["ThemeSwitcher.jsx"]
+        CSS["index.css (CSS 变量)"]
+        TC -->|"data-theme 属性"| CSS
+        TS -->|"setThemeId()"| TC
+    end
+
+    subgraph UI["UI 组件层 (纯展示 + 回调)"]
+        SB["Sidebar.jsx"]
+        TB["Toolbar.jsx"]
+        TL["TaskList.jsx"]
+        TI["TaskItem.jsx"]
+        RM["RolloverModal.jsx"]
+        PFM["PlanFutureModal.jsx"]
+        TL --> TI
+    end
+
+    subgraph Data["数据层 (纯函数, 零 React)"]
+        TS2["taskStore.js"]
+        ALS["actionLogStore.js"]
+        ST["storage.js"]
+        DU["dateUtils.js"]
+        TS2 -->|"读写"| ST
+        TS2 -->|"追加日志"| ALS
+        ALS -->|"读写"| ST
+        TS2 -->|"时间计算"| DU
+    end
+
+    App -->|"ThemeProvider 包裹"| TC
+    App -->|"props + 回调"| SB
+    App -->|"props + 回调"| TB
+    App -->|"props + 回调"| TL
+    App -->|"控制显隐"| RM
+    App -->|"控制显隐"| PFM
+    App -->|"调用函数"| TS2
+```
+
+---
+
+## 分层架构
+
+整个系统分为 **4 层**，每层只和相邻层交互：
+
+| 层级 | 文件 | 职责 | 核心原则 |
+|------|------|------|----------|
+| **入口** | [main.jsx](file:///F:/Desktop/PlanTrace/src/main.jsx) → [App.jsx](file:///F:/Desktop/PlanTrace/src/App.jsx) | 挂载 React、管理全局状态 | 唯一的"指挥中心" |
+| **主题** | `ThemeContext` + [index.css](file:///F:/Desktop/PlanTrace/src/index.css) | 颜色/样式变量切换 | CSS 变量隔离，组件无感 |
+| **组件** | [Sidebar](file:///F:/Desktop/PlanTrace/src/components/Sidebar.jsx#19-177) / [Toolbar](file:///F:/Desktop/PlanTrace/src/components/Toolbar.jsx#5-75) / [TaskItem](file:///F:/Desktop/PlanTrace/src/components/TaskItem.jsx#31-120) 等 | 纯展示 + 回调上报 | 不直接操作 LocalStorage |
+| **数据** | `taskStore` / `actionLogStore` / `storage` / `dateUtils` | 数据读写 + 业务逻辑 | 纯 JS 函数，零 React 依赖 |
+
+---
+
+## 数据层详解
+
+### [storage.js](file:///F:/Desktop/PlanTrace/src/store/storage.js) — LocalStorage 封装
+
+最底层的 I/O 模块，所有其他 store 都依赖它。
+
+| 函数 | 作用 |
+|------|------|
+| [getJSON(key)](file:///F:/Desktop/PlanTrace/src/store/storage.js#3-11) | 从 LocalStorage 读取并 parse JSON |
+| [setJSON(key, value)](file:///F:/Desktop/PlanTrace/src/store/storage.js#12-15) | 序列化并写入 LocalStorage |
+| [removeKey(key)](file:///F:/Desktop/PlanTrace/src/store/storage.js#16-19) | 删除某个 key |
+| [exportBackup()](file:///F:/Desktop/PlanTrace/src/store/storage.js#20-70) | 导出所有数据为 JSON 文件（优先写项目目录，fallback 浏览器下载） |
+
+> [!TIP]
+> 所有 key 都自动加前缀 `plantrace_`，避免和其他应用冲突。
+
+---
+
+### [dateUtils.js](file:///F:/Desktop/PlanTrace/src/store/dateUtils.js) — 时间工具（纯函数）
+
+**核心设计：所有时间统一使用北京时间 (UTC+8)**，无论用户在什么时区。
+
+| 函数 | 作用 | 返回值 |
+|------|------|--------|
+| [getTodayBJ()](file:///F:/Desktop/PlanTrace/src/store/dateUtils.js#15-21) | 当前北京时间日期 | `"2026-03-03"` |
+| [formatTimeBJ(ts)](file:///F:/Desktop/PlanTrace/src/store/dateUtils.js#32-43) | 时间戳 → 北京时间 | `"18:30"` |
+| [getPastDaysBJ(n)](file:///F:/Desktop/PlanTrace/src/store/dateUtils.js#44-57) | 过去 N 天的日期数组 | `["2026-02-24", ...]` |
+| [shiftDate(str, n)](file:///F:/Desktop/PlanTrace/src/store/dateUtils.js#130-138) | 日期偏移 ±N 天 | `"2026-03-04"` |
+| [isToday(str)](file:///F:/Desktop/PlanTrace/src/store/dateUtils.js#107-113) | 是否是今天 | `true/false` |
+| [isPast(str)](file:///F:/Desktop/PlanTrace/src/store/dateUtils.js#114-120) | 是否是过去 | `true/false` |
+| [generateId(prefix)](file:///F:/Desktop/PlanTrace/src/store/dateUtils.js#121-129) | 生成唯一 ID | `"task_1709..._a3b2"` |
+
+> [!IMPORTANT]
+> **扩展时的关键约束**：如果你要加任何和时间相关的功能，**必须**用这个文件的函数，不要用 `new Date()` 直接取本地时间。否则不同时区的用户会出 bug。
+
+---
+
+### [taskStore.js](file:///F:/Desktop/PlanTrace/src/store/taskStore.js) — 任务数据操作
+
+**核心数据结构 — Task 对象：**
+```json
+{
+  "id": "task_1709456789_a3b2c1",
+  "content": "Review PR",
+  "status": "pending",          // pending | completed | deleted
+  "created_at": 1709456789000,
+  "active_dates": ["2026-03-03"],  // 关键！一个任务可以出现在多天
+  "completed_at": null
+}
+```
+
+| 函数 | 作用 | 写日志？ |
+|------|------|---------|
+| [createTask(content, dateStr)](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#38-61) | 创建新任务 | ✅ CREATE |
+| [completeTask(taskId)](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#62-83) | 标记为已完成 | ✅ COMPLETE |
+| [deleteTask(taskId, dateStr)](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#84-103) | 标记为已删除 | ✅ DELETE |
+| [hammerTask(taskId)](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#104-116) | 记录努力（不改状态） | ✅ HAMMER |
+| [rolloverTask(taskId)](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#117-139) | 把过去的任务继承到今天 | ✅ ROLLOVER |
+| [getTasksForDate(dateStr)](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#22-30) | 获取某天的任务列表 | ❌ 只读 |
+| [getDateStatus(dateStr)](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#164-174) | 侧边栏圆点状态 | ❌ 只读 |
+| [getPendingRolloverCandidates()](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#140-156) | 过去 7 天未完成的任务 | ❌ 只读 |
+
+> [!IMPORTANT]
+> **单向依赖**：`taskStore` 调用 `actionLogStore.appendLog()`，但 `actionLogStore` 完全不知道 `taskStore` 的存在。新增操作时记得在 store 函数里调用 [appendLog()](file:///F:/Desktop/PlanTrace/src/store/actionLogStore.js#10-26)。
+
+---
+
+### [actionLogStore.js](file:///F:/Desktop/PlanTrace/src/store/actionLogStore.js) — 操作日志（Event Sourcing）
+
+**只追加，不删除**的审计日志。每条日志结构：
+
+```json
+{
+  "log_id": "log_1709..._x2y3",
+  "task_id": "task_1709..._a3b2",
+  "action_type": "HAMMER",     // CREATE | COMPLETE | HAMMER | ROLLOVER | DELETE
+  "target_date": "2026-03-03",
+  "timestamp": 1709456789000
+}
+```
+
+| 函数 | 作用 |
+|------|------|
+| [appendLog({...})](file:///F:/Desktop/PlanTrace/src/store/actionLogStore.js#10-26) | 追加一条日志 |
+| [getHammerCount(taskId, dateStr)](file:///F:/Desktop/PlanTrace/src/store/actionLogStore.js#34-42) | 某任务在某天被锤了几次 |
+| [exportAllLogs()](file:///F:/Desktop/PlanTrace/src/store/actionLogStore.js#50-56) | 导出所有日志（备份用） |
+
+> [!TIP]
+> 如果要加新的操作类型（比如 `EDIT`、`STAR`），只需在 `taskStore` 对应函数里加一行 [appendLog({ action_type: 'STAR', ... })](file:///F:/Desktop/PlanTrace/src/store/actionLogStore.js#10-26) 即可。
+
+---
+
+## 指挥中心 — [App.jsx](file:///F:/Desktop/PlanTrace/src/App.jsx)
+
+[AppContent](file:///F:/Desktop/PlanTrace/src/App.jsx#24-157) 是所有状态的唯一归集点：
+
+```mermaid
+graph LR
+    A["selectedDate"] --> B["useEffect: 读取该日任务"]
+    B --> C["tasks 状态"]
+    C --> D["传给 TaskList"]
+    
+    E["refreshKey (++刷新)"] --> B
+    
+    F["handleComplete / handleDelete / handleHammer"] -->|"调 store 函数"| G["store 改数据"]
+    G -->|"refresh()"| E
+```
+
+**核心数据流：**
+1. 用户操作 → 组件调 `props.onXxx()` 回调
+2. App 里的 `handleXxx` → 调 `taskStore` 函数改数据
+3. 调 `refresh()` → `setRefreshKey(k+1)` → 触发 `useEffect` 重读数据
+4. 新数据通过 props 流入所有组件 → 自动重渲染
+
+> [!CAUTION]
+> **不要在子组件里直接调 `taskStore` 函数**。必须通过 props 回调链让 App 统一处理，否则侧边栏的圆点状态不会同步更新。
+
+---
+
+## UI 组件层
+
+每个组件的职责边界清晰，彼此完全独立：
+
+### [Sidebar.jsx](file:///F:/Desktop/PlanTrace/src/components/Sidebar.jsx)
+- **功能**：日期导航（14天滚动窗口）、状态圆点、Plan Future / Export Data 按钮
+- **输入 Props**：`selectedDate`, `onDateSelect`, `onPlanFuture`, `refreshKey`
+- **内部状态**：`offset`（翻页偏移量）
+- **依赖 store**：[getDateStatus()](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#164-174), [getPendingCountForDate()](file:///F:/Desktop/PlanTrace/src/store/taskStore.js#157-163)（只读）
+
+### [Toolbar.jsx](file:///F:/Desktop/PlanTrace/src/components/Toolbar.jsx)
+- **功能**：日期标题栏 + 添加任务输入框
+- **输入 Props**：`selectedDate`, `onAddTask`
+- **内部状态**：`input`（输入文本）、`isExpanded`（展开状态）
+
+### [TaskList.jsx](file:///F:/Desktop/PlanTrace/src/components/TaskList.jsx)
+- **功能**：任务列表容器 + 空状态 + 统计
+- **输入 Props**：`tasks`, `selectedDate`, `onComplete`, `onHammer`, `onDelete`
+- **透传** 回调给 [TaskItem](file:///F:/Desktop/PlanTrace/src/components/TaskItem.jsx#31-120)
+
+### [TaskItem.jsx](file:///F:/Desktop/PlanTrace/src/components/TaskItem.jsx)
+- **功能**：单个任务卡片（完成、锤击、删除）
+- **输入 Props**：单个 `task` + 回调
+- **内部状态**：`hammerAnim`（锤击动画）
+- **依赖 store**：[getHammerCountToday()](file:///F:/Desktop/PlanTrace/src/store/actionLogStore.js#43-49)（只读，取锤击次数）
+
+### [RolloverModal.jsx](file:///F:/Desktop/PlanTrace/src/components/RolloverModal.jsx)
+- **功能**：每日检查未完成任务 → 选择继承到今天
+- **触发条件**：App 启动时检查过去 7 天的 pending 任务且今天未 dismiss
+- **输入 Props**：`candidates`, `onRollover`, `onDismissToday`, `onClose`
+- **内部状态**：勾选列表
+
+### [PlanFutureModal.jsx](file:///F:/Desktop/PlanTrace/src/components/PlanFutureModal.jsx)
+- **功能**：为未来某天创建任务
+- **输入 Props**：`onAddTask`, `onClose`
+- **内部状态**：日期选择 + 任务内容输入
+
+---
+
+## 主题层
+
+```
+index.css 定义 CSS 变量 (--th-bg, --th-glass-bg, ...)
+    ↓ 被 [data-theme="xxx"] 选择器覆盖
+ThemeContext.jsx 设置 document.documentElement.dataset.theme
+    ↓ 由 ThemeSwitcher.jsx 的下拉菜单触发
+所有组件通过 Tailwind 工具类引用这些变量 → 自动适配
+```
+
+**3 个主题的 CSS 变量定义在** [index.css](file:///F:/Desktop/PlanTrace/src/index.css) **的 `[data-theme]` 块中。**
+
+| 主题 | `data-theme` | 特点 |
+|------|-------------|------|
+| 晨雾 Morning Mist | `morning` | 苹果风浅灰白 |
+| 星空 Starry Sky | `midnight` | 深空渐变 + 暗色毛玻璃 |
+| 晚霞 Sunset | `sunset` | 暖色蜜桃/琥珀 |
+
+> [!TIP]
+> **加新主题只需**：① 在 [index.css](file:///F:/Desktop/PlanTrace/src/index.css) 加一个 `[data-theme="xxx"]` 块 ② 在 [ThemeContext.jsx](file:///F:/Desktop/PlanTrace/src/components/ThemeContext.jsx) 的 `THEMES` 数组加一项。不需要改任何组件。
+
+---
+
+## LocalStorage 数据结构
+
+| Key (不含前缀) | 内容 | 读写者 |
+|------|------|--------|
+| `tasks` | Task[] 数组 | `taskStore` |
+| `action_logs` | Log[] 数组 | `actionLogStore` |
+| `plantrace_theme` | 主题 ID 字符串 | `ThemeContext` |
+| `show_edge` | boolean | [App.jsx](file:///F:/Desktop/PlanTrace/src/App.jsx) |
+| `rollover_dismissed` | 日期字符串 | [App.jsx](file:///F:/Desktop/PlanTrace/src/App.jsx) |
+
+---
+
+## 扩展指南
+
+### 加新任务操作（如 STAR / EDIT）
+1. [taskStore.js](file:///F:/Desktop/PlanTrace/src/store/taskStore.js) 加函数 → 调 [appendLog()](file:///F:/Desktop/PlanTrace/src/store/actionLogStore.js#10-26)
+2. [App.jsx](file:///F:/Desktop/PlanTrace/src/App.jsx) 加 `handleXxx` → 调 store 函数 + `refresh()`
+3. 相关组件加按钮 → 调 `props.onXxx()` 回调
+
+### 加新组件
+1. 在 `components/` 创建文件
+2. 在 [App.jsx](file:///F:/Desktop/PlanTrace/src/App.jsx) 导入 + 传 props
+3. 用 `text-text-primary` 等 theme-aware 类名，不写死颜色
+
+### 加新主题
+1. [index.css](file:///F:/Desktop/PlanTrace/src/index.css) 加 `[data-theme="xxx"]` CSS 变量块
+2. [ThemeContext.jsx](file:///F:/Desktop/PlanTrace/src/components/ThemeContext.jsx) 的 `THEMES` 加一项
+3. （可选）[index.css](file:///F:/Desktop/PlanTrace/src/index.css) 底部加 `--th-edge-glow-color` 覆盖
+
+### 加新 LocalStorage 数据
+1. 必须用 [storage.js](file:///F:/Desktop/PlanTrace/src/store/storage.js) 的 `getJSON/setJSON`（带前缀）
+2. 如需导出，更新 [exportBackup()](file:///F:/Desktop/PlanTrace/src/store/storage.js#20-70) 里的 payload

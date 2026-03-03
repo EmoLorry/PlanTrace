@@ -41,5 +41,8 @@ function backupPlugin() {
 }
 
 export default defineConfig({
+  server: {
+    open: true
+  },
   plugins: [react(), tailwindcss(), backupPlugin()],
 })

@@ -1,29 +1,140 @@
 @import "tailwindcss";
 
-
 @theme {
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --color-glass: rgba(255, 255, 255, 0.08);
-  --color-glass-border: rgba(255, 255, 255, 0.15);
-  --color-glass-hover: rgba(255, 255, 255, 0.14);
-  --color-glass-active: rgba(255, 255, 255, 0.22);
-  --color-surface: rgba(255, 255, 255, 0.05);
-  --color-text-primary: rgba(255, 255, 255, 0.95);
-  --color-text-secondary: rgba(255, 255, 255, 0.55);
-  --color-text-muted: rgba(255, 255, 255, 0.3);
-  --color-accent: #6c8aff;
-  --color-accent-glow: rgba(108, 138, 255, 0.4);
-  --color-green: #4ade80;
-  --color-green-glow: rgba(74, 222, 128, 0.5);
-  --color-amber: #fbbf24;
-  --color-red: #f87171;
-  --color-grey-dot: rgba(255, 255, 255, 0.25);
-  --color-blue-dot: #60a5fa;
-  --color-blue-glow: rgba(96, 165, 250, 0.5);
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  /* Default theme tokens (Morning Mist) — overridden per [data-theme] */
+  --color-text-primary: #1d1d1f;
+  --color-text-secondary: #6e6e73;
+  --color-text-muted: #aeaeb2;
+
+  --color-accent: #007aff;
+  --color-accent-light: rgba(0, 122, 255, 0.1);
+  --color-accent-medium: rgba(0, 122, 255, 0.15);
+
+  --color-green: #34c759;
+  --color-green-light: rgba(52, 199, 89, 0.12);
+  --color-amber: #ff9500;
+  --color-amber-light: rgba(255, 149, 0, 0.1);
+  --color-red: #ff3b30;
+  --color-red-light: rgba(255, 59, 48, 0.1);
+
+  --color-grey-dot: #c7c7cc;
+  --color-blue-dot: #007aff;
+  --color-green-dot: #34c759;
 }
 
+/* ═══════════════════════════════════════════════════════
+   THEME: 晨雾 Morning Mist (Default — Light)
+   ═══════════════════════════════════════════════════════ */
+:root,
+[data-theme="morning"] {
+  --th-bg: #f5f5f7;
+  --th-sidebar-bg: rgba(255, 255, 255, 0.5);
+  --th-glass-bg: rgba(255, 255, 255, 0.78);
+  --th-glass-border: rgba(0, 0, 0, 0.08);
+  --th-glass-subtle-bg: rgba(255, 255, 255, 0.55);
+  --th-glass-subtle-border: rgba(0, 0, 0, 0.05);
+  --th-glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+  --th-glass-subtle-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --th-divider: rgba(0, 0, 0, 0.06);
+  --th-hover: rgba(0, 0, 0, 0.04);
+  --th-card-selected: rgba(255, 255, 255, 1);
+  --th-card-selected-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  --th-input-bg: rgba(0, 0, 0, 0.03);
+  --th-input-border: rgba(0, 0, 0, 0.06);
+  --th-modal-overlay: rgba(0, 0, 0, 0.18);
+  --th-modal-bg: rgba(255, 255, 255, 0.92);
+  --th-scrollbar: rgba(0, 0, 0, 0.12);
+  --th-scrollbar-hover: rgba(0, 0, 0, 0.2);
+  --th-checkbox-border: rgba(0, 0, 0, 0.18);
+}
 
+/* ═══════════════════════════════════════════════════════
+   THEME: 星空 Starry Sky (Dark)
+   ═══════════════════════════════════════════════════════ */
+[data-theme="midnight"] {
+  --th-bg: linear-gradient(135deg, #0b0e1a 0%, #0f1628 30%, #111d35 60%, #0d1226 100%);
+  --th-sidebar-bg: rgba(12, 16, 30, 0.75);
+  --th-glass-bg: rgba(255, 255, 255, 0.05);
+  --th-glass-border: rgba(255, 255, 255, 0.08);
+  --th-glass-subtle-bg: rgba(255, 255, 255, 0.04);
+  --th-glass-subtle-border: rgba(255, 255, 255, 0.06);
+  --th-glass-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.2);
+  --th-glass-subtle-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --th-divider: rgba(255, 255, 255, 0.06);
+  --th-hover: rgba(255, 255, 255, 0.06);
+  --th-card-selected: rgba(255, 255, 255, 0.1);
+  --th-card-selected-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  --th-input-bg: rgba(255, 255, 255, 0.05);
+  --th-input-border: rgba(255, 255, 255, 0.08);
+  --th-modal-overlay: rgba(0, 0, 0, 0.55);
+  --th-modal-bg: rgba(22, 24, 40, 0.92);
+  --th-scrollbar: rgba(255, 255, 255, 0.1);
+  --th-scrollbar-hover: rgba(255, 255, 255, 0.18);
+  --th-checkbox-border: rgba(255, 255, 255, 0.2);
 
+  --color-text-primary: rgba(255, 255, 255, 0.92);
+  --color-text-secondary: rgba(255, 255, 255, 0.55);
+  --color-text-muted: rgba(255, 255, 255, 0.3);
+  --color-accent: #5e9eff;
+  --color-accent-light: rgba(94, 158, 255, 0.15);
+  --color-accent-medium: rgba(94, 158, 255, 0.2);
+  --color-green: #4ade80;
+  --color-green-light: rgba(74, 222, 128, 0.15);
+  --color-amber: #fbbf24;
+  --color-amber-light: rgba(251, 191, 36, 0.12);
+  --color-red: #f87171;
+  --color-red-light: rgba(248, 113, 113, 0.12);
+  --color-grey-dot: rgba(255, 255, 255, 0.25);
+  --color-blue-dot: #5e9eff;
+  --color-green-dot: #4ade80;
+}
+
+/* ═══════════════════════════════════════════════════════
+   THEME: 晚霞 Sunset (Warm)
+   ═══════════════════════════════════════════════════════ */
+[data-theme="sunset"] {
+  --th-bg: #fef5ee;
+  --th-sidebar-bg: rgba(255, 248, 240, 0.65);
+  --th-glass-bg: rgba(255, 252, 248, 0.72);
+  --th-glass-border: rgba(180, 120, 60, 0.08);
+  --th-glass-subtle-bg: rgba(255, 250, 245, 0.55);
+  --th-glass-subtle-border: rgba(180, 120, 60, 0.06);
+  --th-glass-shadow: 0 1px 3px rgba(120, 60, 20, 0.04), 0 4px 12px rgba(120, 60, 20, 0.03);
+  --th-glass-subtle-shadow: 0 1px 2px rgba(120, 60, 20, 0.03);
+  --th-divider: rgba(180, 120, 60, 0.08);
+  --th-hover: rgba(180, 120, 60, 0.05);
+  --th-card-selected: rgba(255, 252, 248, 0.95);
+  --th-card-selected-shadow: 0 1px 4px rgba(120, 60, 20, 0.08);
+  --th-input-bg: rgba(180, 120, 60, 0.04);
+  --th-input-border: rgba(180, 120, 60, 0.08);
+  --th-modal-overlay: rgba(60, 30, 10, 0.15);
+  --th-modal-bg: rgba(255, 252, 248, 0.94);
+  --th-scrollbar: rgba(180, 120, 60, 0.12);
+  --th-scrollbar-hover: rgba(180, 120, 60, 0.2);
+  --th-checkbox-border: rgba(180, 120, 60, 0.2);
+
+  --color-text-primary: #3d2c1e;
+  --color-text-secondary: #8b7355;
+  --color-text-muted: #bda88a;
+  --color-accent: #e07830;
+  --color-accent-light: rgba(224, 120, 48, 0.1);
+  --color-accent-medium: rgba(224, 120, 48, 0.15);
+  --color-green: #5cb85c;
+  --color-green-light: rgba(92, 184, 92, 0.12);
+  --color-amber: #e0922e;
+  --color-amber-light: rgba(224, 146, 46, 0.1);
+  --color-red: #d94f4f;
+  --color-red-light: rgba(217, 79, 79, 0.1);
+  --color-grey-dot: #c9b99a;
+  --color-blue-dot: #e07830;
+  --color-green-dot: #5cb85c;
+}
+
+/* ═══════════════════════════════════════════════════════
+   BASE STYLES
+   ═══════════════════════════════════════════════════════ */
 @layer base {
   * {
     margin: 0;
@@ -41,17 +152,16 @@
 
   body {
     font-family: var(--font-sans);
-    background: linear-gradient(135deg, #0f0c29, #1a1040, #24243e, #1a1040);
-    background-size: 400% 400%;
-    animation: gradientShift 20s ease infinite;
+    background: var(--th-bg);
     color: var(--color-text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background 0.4s ease, color 0.3s ease;
+    min-height: 100%;
   }
 
-  /* Custom scrollbar */
   ::-webkit-scrollbar {
-    width: 4px;
+    width: 5px;
   }
 
   ::-webkit-scrollbar-track {
@@ -59,33 +169,22 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 4px;
+    background: var(--th-scrollbar);
+    border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.25);
+    background: var(--th-scrollbar-hover);
   }
 }
 
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
+/* ═══════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════ */
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
 
   to {
@@ -94,22 +193,10 @@
   }
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-12px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 @keyframes modalIn {
   from {
     opacity: 0;
-    transform: scale(0.95) translateY(10px);
+    transform: scale(0.96) translateY(8px);
   }
 
   to {
@@ -128,17 +215,17 @@
   }
 }
 
-@keyframes pulse-glow {
+@keyframes pulse-soft {
 
   0%,
   100% {
-    opacity: 0.8;
+    opacity: 0.85;
     transform: scale(1);
   }
 
   50% {
     opacity: 1;
-    transform: scale(1.15);
+    transform: scale(1.2);
   }
 }
 
@@ -150,69 +237,128 @@
   }
 
   25% {
-    transform: rotate(-12deg);
+    transform: rotate(-10deg);
   }
 
   75% {
-    transform: rotate(12deg);
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes dropIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
-}
-
-.animate-slide-in {
-  animation: slideIn 0.3s ease-out forwards;
+  animation: fadeIn 0.25s ease-out forwards;
 }
 
 .animate-modal-in {
-  animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: modalIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-check-draw {
   stroke-dasharray: 24;
   stroke-dashoffset: 0;
-  animation: checkDraw 0.4s ease-out forwards;
+  animation: checkDraw 0.35s ease-out forwards;
 }
 
 .animate-pulse-glow {
-  animation: pulse-glow 2.5s ease-in-out infinite;
+  animation: pulse-soft 2.8s ease-in-out infinite;
 }
 
 .animate-hammer {
-  animation: hammerShake 0.35s ease-in-out;
+  animation: hammerShake 0.3s ease-in-out;
 }
 
-/* Glass card base */
+.animate-drop-in {
+  animation: dropIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ═══════════════════════════════════════════════════════
+   GLASS COMPONENTS — Theme-aware
+   ═══════════════════════════════════════════════════════ */
 .glass {
-  background: var(--color-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--color-glass-border);
-  border-radius: 16px;
+  background: var(--th-glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--th-glass-border);
+  border-radius: 14px;
+  box-shadow: var(--th-glass-shadow);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .glass-subtle {
-  background: var(--color-surface);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--th-glass-subtle-bg);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid var(--th-glass-subtle-border);
   border-radius: 12px;
+  box-shadow: var(--th-glass-subtle-shadow);
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Glow dots */
+/* ═══════════════════════════════════════════════════════
+   STATUS DOTS — Theme-aware
+   ═══════════════════════════════════════════════════════ */
 .dot-green {
-  background: var(--color-green);
-  box-shadow: 0 0 6px var(--color-green-glow), 0 0 12px var(--color-green-glow);
+  background: var(--color-green-dot);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--color-green-dot) 50%, transparent),
+    0 0 8px color-mix(in srgb, var(--color-green-dot) 25%, transparent);
 }
 
 .dot-grey {
   background: var(--color-grey-dot);
-  box-shadow: 0 0 4px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 3px rgba(128, 128, 128, 0.15);
 }
 
 .dot-blue {
   background: var(--color-blue-dot);
-  box-shadow: 0 0 6px var(--color-blue-glow), 0 0 12px var(--color-blue-glow);
+  box-shadow: 0 0 4px color-mix(in srgb, var(--color-blue-dot) 45%, transparent),
+    0 0 8px color-mix(in srgb, var(--color-blue-dot) 20%, transparent);
+}
+
+/* ═══════════════════════════════════════════════════════
+   PAGE EDGE VIGNETTE GLOW
+   ═══════════════════════════════════════════════════════ */
+.page-edge-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  transition: opacity 0.4s ease;
+}
+
+.page-edge-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    inset 0 0 80px 20px var(--th-edge-glow-color, rgba(120, 160, 255, 0.12)),
+    inset 0 0 160px 40px var(--th-edge-glow-outer, rgba(100, 140, 255, 0.05));
+  border-radius: 0;
+}
+
+:root,
+[data-theme="morning"] {
+  --th-edge-glow-color: rgba(100, 150, 255, 0.1);
+  --th-edge-glow-outer: rgba(80, 130, 255, 0.04);
+}
+
+[data-theme="midnight"] {
+  --th-edge-glow-color: rgba(80, 120, 255, 0.15);
+  --th-edge-glow-outer: rgba(60, 80, 200, 0.06);
+}
+
+[data-theme="sunset"] {
+  --th-edge-glow-color: rgba(255, 160, 80, 0.1);
+  --th-edge-glow-outer: rgba(255, 120, 100, 0.04);
 }
