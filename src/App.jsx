@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeContext.jsx';
 import ThemeSwitcher from './components/ThemeSwitcher.jsx';
-import { Sparkles } from 'lucide-react';
+import TraceStar from './pages/TraceStar/ThreeDTraceView.jsx';
+import { Sparkles, Star } from 'lucide-react';
 import Sidebar from './components/Sidebar.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import TaskList from './components/TaskList.jsx';
@@ -22,6 +24,7 @@ import {
 const ROLLOVER_DISMISS_KEY = 'rollover_dismissed';
 
 function AppContent() {
+  const navigate = useNavigate();
   const todayStr = getTodayBJ();
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [tasks, setTasks] = useState([]);
@@ -87,78 +90,93 @@ function AppContent() {
 
   const handleDateSelect = useCallback((dateStr) => {
     setSelectedDate(dateStr);
-  }, []);
+    navigate('/');
+  }, [navigate]);
 
   return (
-    <div className="h-full w-full flex">
-      <Sidebar
-        selectedDate={selectedDate}
-        onDateSelect={handleDateSelect}
-        onPlanFuture={() => setShowPlanFuture(true)}
-        refreshKey={refreshKey}
-      />
+    <Routes>
+      <Route path="/" element={
+        <div className="h-full w-full flex">
+          <Sidebar
+            selectedDate={selectedDate}
+            onDateSelect={handleDateSelect}
+            onPlanFuture={() => setShowPlanFuture(true)}
+            refreshKey={refreshKey}
+          />
 
-      <div className="w-px my-6" style={{ background: 'var(--th-divider)' }} />
+          <div className="w-px my-6" style={{ background: 'var(--th-divider)' }} />
 
-      {/* Page Edge Vignette Glow */}
-      {showEdge && <div className="page-edge-glow" />}
+          {/* Page Edge Vignette Glow */}
+          {showEdge && <div className="page-edge-glow" />}
 
-      <main className="flex-1 h-full overflow-y-auto py-6 px-8">
-        {/* Top right controls */}
-        <div className="flex items-center justify-end gap-1 mb-2">
-          <button
-            onClick={() => {
-              const next = !showEdge;
-              setShowEdge(next);
-              setJSON('show_edge', next);
-            }}
-            className={`p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all
+          <main className="flex-1 h-full overflow-y-auto py-6 px-8 relative">
+            {/* Top right controls */}
+            <div className="flex items-center justify-end gap-1 mb-2">
+              <button
+                onClick={() => navigate('/tracestar')}
+                className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-indigo-400"
+                title="TraceStar"
+              >
+                <Star size={18} />
+              </button>
+              <button
+                onClick={() => {
+                  const next = !showEdge;
+                  setShowEdge(next);
+                  setJSON('show_edge', next);
+                }}
+                className={`p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all
               ${showEdge ? 'text-accent' : 'text-text-muted'}`}
-            title={showEdge ? 'Hide edge glow' : 'Show edge glow'}
-          >
-            <Sparkles size={18} />
-          </button>
-          <ThemeSwitcher />
+                title={showEdge ? 'Hide edge glow' : 'Show edge glow'}
+              >
+                <Sparkles size={18} />
+              </button>
+              <ThemeSwitcher />
+            </div>
+
+            <div className="max-w-2xl mx-auto">
+              <Toolbar
+                selectedDate={selectedDate}
+                onAddTask={(content) => handleAddTask(content)}
+              />
+              <TaskList
+                tasks={tasks}
+                selectedDate={selectedDate}
+                onComplete={handleComplete}
+                onHammer={handleHammer}
+                onDelete={handleDelete}
+              />
+            </div>
+          </main>
+
+          {showRollover && (
+            <RolloverModal
+              candidates={rolloverCandidates}
+              onRollover={handleRollover}
+              onDismissToday={handleRolloverDismiss}
+              onClose={() => setShowRollover(false)}
+            />
+          )}
+
+          {showPlanFuture && (
+            <PlanFutureModal
+              onAddTask={handleAddTask}
+              onClose={() => setShowPlanFuture(false)}
+            />
+          )}
         </div>
-
-        <div className="max-w-2xl mx-auto">
-          <Toolbar
-            selectedDate={selectedDate}
-            onAddTask={(content) => handleAddTask(content)}
-          />
-          <TaskList
-            tasks={tasks}
-            selectedDate={selectedDate}
-            onComplete={handleComplete}
-            onHammer={handleHammer}
-            onDelete={handleDelete}
-          />
-        </div>
-      </main>
-
-      {showRollover && (
-        <RolloverModal
-          candidates={rolloverCandidates}
-          onRollover={handleRollover}
-          onDismissToday={handleRolloverDismiss}
-          onClose={() => setShowRollover(false)}
-        />
-      )}
-
-      {showPlanFuture && (
-        <PlanFutureModal
-          onAddTask={handleAddTask}
-          onClose={() => setShowPlanFuture(false)}
-        />
-      )}
-    </div>
+      } />
+      <Route path="/tracestar" element={<TraceStar />} />
+    </Routes>
   );
 }
 
 export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
     </ThemeProvider>
   );
 }

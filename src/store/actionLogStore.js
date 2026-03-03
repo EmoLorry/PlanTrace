@@ -3,7 +3,7 @@ import { generateId, getTodayBJ } from './dateUtils.js';
 
 const LOG_KEY = 'action_logs';
 
-function getAllLogs() {
+export function getAllLogs() {
     return getJSON(LOG_KEY) || [];
 }
 
