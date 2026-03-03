@@ -1,4 +1,4 @@
-# PlanTrace ✦ 每日待办与进度追踪
+# PlanTrace ✦ 每日待办与进度追踪可视化
 
 > A minimalist daily todo & progress tracker with event-sourcing architecture.
 >
@@ -8,6 +8,16 @@
 ![react](https://img.shields.io/badge/React-18-61dafb)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
 ![license](https://img.shields.io/badge/License-MIT-green)
+
+---
+
+## 📸 Screenshots | 应用截图
+
+![主界面1](static/1.png)
+
+![主界面2](static/3.png)
+
+![TraceStar 星图视图](static/2.png)
 
 ---
 
