@@ -1,0 +1,60 @@
+# PlanTrace — Walkthrough
+
+## Overview
+A minimalist daily todo & progress tracker SPA built with **React + Tailwind CSS v4 + Lucide Icons**, powered by an **event-sourcing** data layer stored in LocalStorage. All time logic enforces **Beijing time (UTC+8)**.
+
+## Architecture
+
+```mermaid
+graph LR
+  A["User Action"] --> B["taskStore / actionLogStore"]
+  B --> C["LocalStorage"]
+  B --> D["Append-Only ActionLog"]
+  C --> E["React State Refresh"]
+  E --> F["UI Re-render"]
+```
+
+**Two independent data tables:**
+- **Tasks** — mutable entity state ([id](file:///F:/Desktop/PlanTrace/src/components/Sidebar.jsx#17-168), `content`, `status`, `active_dates`)
+- **ActionLogs** — immutable event stream (`CREATE`, `COMPLETE`, `HAMMER`, `ROLLOVER`, `DELETE`)
+
+## Files Created
+
+| Layer | File | Purpose |
+|-------|------|---------|
+| Data | [dateUtils.js](file:///F:/Desktop/PlanTrace/src/store/dateUtils.js) | UTC+8 date/time functions |
+| Data | [storage.js](file:///F:/Desktop/PlanTrace/src/store/storage.js) | LocalStorage wrapper |
+| Data | [taskStore.js](file:///F:/Desktop/PlanTrace/src/store/taskStore.js) | Task CRUD + event logging |
+| Data | [actionLogStore.js](file:///F:/Desktop/PlanTrace/src/store/actionLogStore.js) | Append-only action logs |
+| UI | [Sidebar.jsx](file:///F:/Desktop/PlanTrace/src/components/Sidebar.jsx) | Date cards with glow dots |
+| UI | [Toolbar.jsx](file:///F:/Desktop/PlanTrace/src/components/Toolbar.jsx) | Date header + add task input |
+| UI | [TaskItem.jsx](file:///F:/Desktop/PlanTrace/src/components/TaskItem.jsx) | Pen/checkmark icons, hammer |
+| UI | [TaskList.jsx](file:///F:/Desktop/PlanTrace/src/components/TaskList.jsx) | Sorted task list |
+| UI | [RolloverModal.jsx](file:///F:/Desktop/PlanTrace/src/components/RolloverModal.jsx) | Inherit past pending tasks |
+| UI | [PlanFutureModal.jsx](file:///F:/Desktop/PlanTrace/src/components/PlanFutureModal.jsx) | Schedule future tasks |
+| Root | [App.jsx](file:///F:/Desktop/PlanTrace/src/App.jsx) | App shell + state management |
+| Style | [index.css](file:///F:/Desktop/PlanTrace/src/index.css) | Design system |
+
+## Verified Features
+
+````carousel
+### Empty State
+![Empty state with glassmorphism UI](C:/Users/28301/.gemini/antigravity/brain/c5e247fe-814a-47df-a55c-dd9d1bfad9ce/.system_generated/click_feedback/click_feedback_1772516465627.png)
+<!-- slide -->
+### Task Added — Blue Glow Dot
+![Pending task with blue glow dot on today's card](C:/Users/28301/.gemini/antigravity/brain/c5e247fe-814a-47df-a55c-dd9d1bfad9ce/.system_generated/click_feedback/click_feedback_1772516495249.png)
+<!-- slide -->
+### Task Completed — Green Glow Dot
+![Completed task with green glow dot and animated checkmark](C:/Users/28301/.gemini/antigravity/brain/c5e247fe-814a-47df-a55c-dd9d1bfad9ce/plantrace_final_state_1772516519548.png)
+````
+
+### Full Demo Recording
+![Full browser test: add, hammer, complete](C:/Users/28301/.gemini/antigravity/brain/c5e247fe-814a-47df-a55c-dd9d1bfad9ce/screenshot_check_1772516421269.webp)
+
+## How to Run
+
+```bash
+cd F:\Desktop\PlanTrace
+npm run dev
+# → http://localhost:5173/
+```
