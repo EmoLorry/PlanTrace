@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { X, ArrowRight, BellOff } from 'lucide-react';
+import { X, ArrowRight } from 'lucide-react';
 
-export default function RolloverModal({ candidates, onRollover, onDismissToday, onClose }) {
+export default function RolloverModal({ candidates, onRollover, onClose }) {
     const [selected, setSelected] = useState(new Set());
 
     const toggleSelect = (taskId) => {
@@ -101,16 +101,7 @@ export default function RolloverModal({ candidates, onRollover, onDismissToday, 
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center justify-between gap-3">
-                    <button
-                        onClick={onDismissToday}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs text-text-muted
-                            hover:text-text-secondary hover:bg-black/4 transition-all"
-                    >
-                        <BellOff size={14} />
-                        Don't show today
-                    </button>
-
+                <div className="flex items-center justify-end gap-3">
                     <button
                         onClick={handleInherit}
                         disabled={selected.size === 0}

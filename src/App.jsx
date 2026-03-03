@@ -78,6 +78,7 @@ function AppContent() {
 
   const handleRollover = useCallback((taskIds) => {
     taskIds.forEach((id) => rolloverTask(id));
+    setJSON(ROLLOVER_DISMISS_KEY, todayStr); // 继承完成后自动记录今日不再提醒
     setShowRollover(false);
     setSelectedDate(todayStr);
     refresh();
@@ -154,7 +155,10 @@ function AppContent() {
               candidates={rolloverCandidates}
               onRollover={handleRollover}
               onDismissToday={handleRolloverDismiss}
-              onClose={() => setShowRollover(false)}
+              onClose={() => {
+                setJSON(ROLLOVER_DISMISS_KEY, todayStr); // X关闭也记录今日不再提醒
+                setShowRollover(false);
+              }}
             />
           )}
 

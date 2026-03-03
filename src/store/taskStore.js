@@ -82,14 +82,22 @@ export function completeTask(taskId) {
 }
 
 /**
- * Delete a task
+ * Delete a task from a specific date only (removes dateStr from active_dates).
+ * If active_dates becomes empty after removal, mark the whole task as deleted.
  */
 export function deleteTask(taskId, dateStr) {
     const tasks = getAllTasks();
     const idx = tasks.findIndex((t) => t.id === taskId);
     if (idx === -1) return null;
 
-    tasks[idx].status = 'deleted';
+    // 只移除当天，而不是整个任务
+    tasks[idx].active_dates = tasks[idx].active_dates.filter((d) => d !== dateStr);
+
+    // 如果所有日期都清空了，才真正标记为 deleted
+    if (tasks[idx].active_dates.length === 0) {
+        tasks[idx].status = 'deleted';
+    }
+
     saveTasks(tasks);
 
     appendLog({
