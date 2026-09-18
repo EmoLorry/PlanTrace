@@ -3,23 +3,29 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeContext.jsx';
 import ThemeSwitcher from './components/ThemeSwitcher.jsx';
 import TraceStar from './pages/TraceStar/ThreeDTraceView.jsx';
-import { Sparkles, Star } from 'lucide-react';
+import { Sparkles, Star, BookOpen, CalendarDays } from 'lucide-react';
 import Sidebar from './components/Sidebar.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import TaskList from './components/TaskList.jsx';
 import RolloverModal from './components/RolloverModal.jsx';
 import PlanFutureModal from './components/PlanFutureModal.jsx';
+import AtomicTimer from './components/AtomicTimer.jsx';
+import DiaryModal from './components/DiaryModal.jsx';
+import WeekView from './components/WeekView.jsx';
 import { getTodayBJ } from './store/dateUtils.js';
 import { getJSON, setJSON } from './store/storage.js';
 import {
   getTasksForDate,
   createTask,
+  editTaskContent,
   completeTask,
   deleteTask,
   hammerTask,
+  addTimeSpent,
   rolloverTask,
   getPendingRolloverCandidates,
 } from './store/taskStore.js';
+
 
 const ROLLOVER_DISMISS_KEY = 'rollover_dismissed';
 
@@ -32,6 +38,8 @@ function AppContent() {
   const [showRollover, setShowRollover] = useState(false);
   const [rolloverCandidates, setRolloverCandidates] = useState([]);
   const [showPlanFuture, setShowPlanFuture] = useState(false);
+  const [showDiary,      setShowDiary]      = useState(false);
+  const [showWeekView,   setShowWeekView]   = useState(false);
   const [showEdge, setShowEdge] = useState(() => {
     const stored = getJSON('show_edge');
     return stored !== null ? stored : true;
@@ -61,13 +69,20 @@ function AppContent() {
     refresh();
   }, [selectedDate, refresh]);
 
+  const handleEditContent = useCallback((taskId, newContent) => {
+    editTaskContent(taskId, newContent);
+    refresh();
+  }, [refresh]);
+
   const handleComplete = useCallback((taskId) => {
     completeTask(taskId);
     refresh();
   }, [refresh]);
 
-  const handleHammer = useCallback((taskId) => {
-    hammerTask(taskId);
+  const handleTimerStop = useCallback((taskId, seconds) => {
+    const todayStr2 = getTodayBJ();
+    addTimeSpent(taskId, todayStr2, seconds);
+    hammerTask(taskId, seconds);
     refresh();
   }, [refresh]);
 
@@ -111,8 +126,22 @@ function AppContent() {
           {showEdge && <div className="page-edge-glow" />}
 
           <main className="flex-1 h-full overflow-y-auto py-6 px-8 relative">
-            {/* Top right controls */}
+            {/* Top-right icon controls */}
             <div className="flex items-center justify-end gap-1 mb-2">
+              <button
+                onClick={() => setShowDiary(true)}
+                className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-amber-400"
+                title="日记"
+              >
+                <BookOpen size={18} />
+              </button>
+              <button
+                onClick={() => setShowWeekView(true)}
+                className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-emerald-400"
+                title="周日程"
+              >
+                <CalendarDays size={18} />
+              </button>
               <button
                 onClick={() => navigate('/tracestar')}
                 className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-indigo-400"
@@ -135,20 +164,31 @@ function AppContent() {
               <ThemeSwitcher />
             </div>
 
-            <div className="max-w-2xl mx-auto">
-              <Toolbar
-                selectedDate={selectedDate}
-                onAddTask={(content) => handleAddTask(content)}
-              />
-              <TaskList
-                tasks={tasks}
-                selectedDate={selectedDate}
-                onComplete={handleComplete}
-                onHammer={handleHammer}
-                onDelete={handleDelete}
-              />
+            {/* Two-column body */}
+            <div className="main-page-grid">
+              {/* Left: tasks (Toolbar completely original) */}
+              <div className="main-task-col">
+                <Toolbar
+                  selectedDate={selectedDate}
+                  onAddTask={(content) => handleAddTask(content)}
+                />
+                <TaskList
+                  tasks={tasks}
+                  selectedDate={selectedDate}
+                  onComplete={handleComplete}
+                  onEditContent={handleEditContent}
+                  onTimerStop={handleTimerStop}
+                  onDelete={handleDelete}
+                />
+              </div>
+
+              {/* Right: Atomic Timer, top aligned with "Add task" input */}
+              <div className="main-atomic-col">
+                <AtomicTimer selectedDate={selectedDate} />
+              </div>
             </div>
           </main>
+
 
           {showRollover && (
             <RolloverModal
@@ -166,6 +206,20 @@ function AppContent() {
             <PlanFutureModal
               onAddTask={handleAddTask}
               onClose={() => setShowPlanFuture(false)}
+            />
+          )}
+
+          {showDiary && (
+            <DiaryModal
+              selectedDate={selectedDate}
+              onClose={() => setShowDiary(false)}
+            />
+          )}
+
+          {showWeekView && (
+            <WeekView
+              initialDate={selectedDate}
+              onClose={() => setShowWeekView(false)}
             />
           )}
         </div>

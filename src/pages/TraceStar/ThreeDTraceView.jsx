@@ -397,7 +397,19 @@ export default function ThreeDTraceView() {
                                 </option>
                             ))}
                         </select>
-                        <div className="pt-2 mt-1 border-t border-divider/30 text-[10px] text-text-muted flex flex-col gap-1">
+                        <div className="pt-2 mt-1 border-t border-divider/30 flex flex-col gap-1.5">
+                            {[
+                                { color: '#60a5fa', label: '待完成' },
+                                { color: '#f59e0b', label: '过去未完成' },
+                                { color: '#4ade80', label: '已完成' },
+                            ].map(({ color, label }) => (
+                                <div key={label} className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color, boxShadow: `0 0 5px ${color}99` }} />
+                                    <span className="text-[11px] text-text-muted font-light tracking-wide">{label}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="pt-2 border-t border-divider/30 text-[10px] text-text-muted flex flex-col gap-1">
                             <div className="flex justify-between"><span>L-Click:</span> <span className="text-text-secondary">Hammer</span></div>
                             <div className="flex justify-between"><span>R-Click:</span> <span className="text-text-secondary">Focus</span></div>
                             <div className="flex justify-between"><span>Space:</span> <span className="text-text-secondary">Reset View</span></div>

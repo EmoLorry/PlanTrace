@@ -46,6 +46,7 @@ export function createTask(content, dateStr) {
         status: 'pending',
         created_at: Date.now(),
         active_dates: [dateStr],
+        time_spent: {},  // key = dateStr, value = cumulative seconds
     };
     tasks.push(task);
     saveTasks(tasks);
@@ -57,6 +58,21 @@ export function createTask(content, dateStr) {
     });
 
     return task;
+}
+
+/**
+ * Edit a task's content globally.
+ */
+export function editTaskContent(taskId, newContent) {
+    const tasks = getAllTasks();
+    const idx = tasks.findIndex((t) => t.id === taskId);
+    if (idx === -1) return null;
+
+    if (newContent.trim()) {
+        tasks[idx].content = newContent.trim();
+        saveTasks(tasks);
+    }
+    return tasks[idx];
 }
 
 /**
@@ -110,16 +126,41 @@ export function deleteTask(taskId, dateStr) {
 }
 
 /**
- * Hammer a task (record effort, no status change)
+ * Hammer a task (record a timer session with duration)
  */
-export function hammerTask(taskId) {
+export function hammerTask(taskId, durationSeconds) {
     const todayStr = getTodayBJ();
 
     appendLog({
         task_id: taskId,
         action_type: 'HAMMER',
         target_date: todayStr,
+        duration_seconds: durationSeconds,
     });
+}
+
+/**
+ * Add elapsed seconds to a task's time_spent for a given date
+ */
+export function addTimeSpent(taskId, dateStr, seconds) {
+    const tasks = getAllTasks();
+    const idx = tasks.findIndex((t) => t.id === taskId);
+    if (idx === -1) return null;
+
+    if (!tasks[idx].time_spent) tasks[idx].time_spent = {};
+    tasks[idx].time_spent[dateStr] = (tasks[idx].time_spent[dateStr] || 0) + seconds;
+    saveTasks(tasks);
+    return tasks[idx];
+}
+
+/**
+ * Get cumulative seconds spent on a task for a given date
+ */
+export function getTimeSpent(taskId, dateStr) {
+    const tasks = getAllTasks();
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task || !task.time_spent) return 0;
+    return task.time_spent[dateStr] || 0;
 }
 
 /**

@@ -362,3 +362,1501 @@
   --th-edge-glow-color: rgba(255, 160, 80, 0.1);
   --th-edge-glow-outer: rgba(255, 120, 100, 0.04);
 }
+
+/* ═══════════════════════════════════════════════════════
+   LAYOUT — two-column page grid
+   ═══════════════════════════════════════════════════════ */
+
+/* Outer two-column container */
+.main-page-grid {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+/* Left: tasks + original Toolbar, takes all remaining space */
+.main-task-col {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Right: atomic timer panel
+   padding-top = date title block height in Toolbar (text-2xl line ~32px
+   + badge ~22px + mb-5 20px) = 74px. The icon row above the grid already
+   pushed everything down ~36px, so we add the date section height only. */
+.main-atomic-col {
+  width: 252px;
+  flex-shrink: 0;
+  padding-top: 74px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ATOMIC TIMER — CSS Variables (theme-aware)
+   ═══════════════════════════════════════════════════════ */
+:root,
+[data-theme="morning"] {
+  --atomic-track: rgba(0, 0, 0, 0.1);
+  --atomic-idle: rgba(0, 0, 0, 0.2);
+  --atomic-progress: #007aff;
+  --atomic-urgent: #ff3b30;
+  --atomic-tick: rgba(0, 0, 0, 0.12);
+  --atomic-tick-major: rgba(0, 0, 0, 0.28);
+  --atomic-numeral: rgba(0, 0, 0, 0.3);
+  --atomic-face-bg: rgba(255, 255, 255, 0.3);
+  --atomic-panel-bg: rgba(255, 255, 255, 0.72);
+  --atomic-panel-border: rgba(0, 0, 0, 0.07);
+  --atomic-label-color: rgba(0, 0, 0, 0.45);
+  --atomic-count-bg: rgba(0, 122, 255, 0.09);
+  --atomic-count-color: #007aff;
+}
+
+[data-theme="midnight"] {
+  --atomic-track: rgba(255, 255, 255, 0.12);
+  --atomic-idle: rgba(255, 255, 255, 0.25);
+  --atomic-progress: #5e9eff;
+  --atomic-urgent: #f87171;
+  --atomic-tick: rgba(255, 255, 255, 0.14);
+  --atomic-tick-major: rgba(255, 255, 255, 0.32);
+  --atomic-numeral: rgba(255, 255, 255, 0.28);
+  --atomic-face-bg: rgba(255, 255, 255, 0.03);
+  --atomic-panel-bg: rgba(255, 255, 255, 0.04);
+  --atomic-panel-border: rgba(255, 255, 255, 0.08);
+  --atomic-label-color: rgba(255, 255, 255, 0.4);
+  --atomic-count-bg: rgba(94, 158, 255, 0.12);
+  --atomic-count-color: #5e9eff;
+}
+
+[data-theme="sunset"] {
+  --atomic-track: rgba(120, 60, 20, 0.1);
+  --atomic-idle: rgba(120, 60, 20, 0.25);
+  --atomic-progress: #e07830;
+  --atomic-urgent: #d94f4f;
+  --atomic-tick: rgba(120, 60, 20, 0.14);
+  --atomic-tick-major: rgba(120, 60, 20, 0.3);
+  --atomic-numeral: rgba(120, 60, 20, 0.3);
+  --atomic-face-bg: rgba(255, 248, 238, 0.3);
+  --atomic-panel-bg: rgba(255, 252, 248, 0.72);
+  --atomic-panel-border: rgba(180, 120, 60, 0.08);
+  --atomic-label-color: rgba(60, 30, 10, 0.4);
+  --atomic-count-bg: rgba(224, 120, 48, 0.1);
+  --atomic-count-color: #e07830;
+}
+
+/* ═══════════════════════════════════════════════════════
+   ATOMIC PANEL
+   ═══════════════════════════════════════════════════════ */
+.atomic-panel {
+  background: var(--atomic-panel-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--atomic-panel-border);
+  border-radius: 18px;
+  padding: 20px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+/* Header */
+.atomic-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.atomic-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.atomic-icon {
+  color: var(--atomic-progress);
+  opacity: 0.8;
+}
+
+.atomic-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+/* Notification permission indicator */
+.atomic-notif-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  font-family: var(--font-sans);
+  cursor: default;
+  transition: opacity 0.15s ease;
+}
+
+.atomic-notif-ok {
+  background: rgba(52, 199, 89, 0.12);
+  color: var(--color-green);
+}
+
+.atomic-notif-denied {
+  background: color-mix(in srgb, var(--atomic-urgent) 10%, transparent);
+  color: var(--atomic-urgent);
+  opacity: 0.7;
+}
+
+.atomic-notif-ask {
+  background: color-mix(in srgb, var(--atomic-progress) 10%, transparent);
+  color: var(--atomic-progress);
+  cursor: pointer;
+}
+
+.atomic-notif-ask:hover {
+  opacity: 0.75;
+}
+
+/* Today count badge — button, click to open history */
+.atomic-count-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--atomic-count-bg);
+  color: var(--atomic-count-color);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+.atomic-count-badge:hover {
+  opacity: 0.8;
+  transform: scale(1.04);
+}
+
+/* ═══════════════════════════════════════════════════════
+   CLOCK FACE — SVG with hands, no text inside
+   ═══════════════════════════════════════════════════════ */
+.atomic-clock-wrap {
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 174px;
+  margin: 0 auto;
+}
+
+.atomic-clock-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.06));
+}
+
+/* Time info block BELOW the clock */
+.atomic-time-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin-top: -4px; /* close up gap between clock and info */
+}
+
+.atomic-time-display {
+  font-family: 'SF Mono', 'Fira Mono', 'Roboto Mono', Consolas, monospace;
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition: color 0.4s ease;
+}
+
+.atomic-time-idle {
+  color: var(--color-text-muted);
+}
+
+.atomic-time-urgent {
+  color: var(--atomic-urgent);
+  animation: atomic-pulse-urgent 1s ease-in-out infinite;
+}
+
+.atomic-session-label {
+  font-size: 11px;
+  color: var(--atomic-label-color);
+  text-align: center;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes atomic-pulse-urgent {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   SETUP CONTROLS (before start)
+   ═══════════════════════════════════════════════════════ */
+.atomic-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+/* Label input — mirrors the add-task glass-subtle style */
+.atomic-input-wrap {
+  background: var(--th-glass-subtle-bg);
+  border: 1px solid var(--th-glass-subtle-border);
+  border-radius: 10px;
+  padding: 0;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.atomic-input-wrap:focus-within {
+  border-color: var(--atomic-progress);
+  box-shadow: 0 0 0 2.5px color-mix(in srgb, var(--atomic-progress) 15%, transparent);
+}
+
+.atomic-label-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--color-text-primary);
+  outline: none;
+  font-family: var(--font-sans);
+}
+
+.atomic-label-input::placeholder {
+  color: var(--color-text-muted);
+  font-weight: 300;
+}
+
+/* Duration stepper — Apple segmented pill style */
+.atomic-duration-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.atomic-dur-segment {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--th-glass-subtle-bg);
+  border: 1px solid var(--th-glass-subtle-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.atomic-dur-step {
+  width: 28px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: var(--font-sans);
+  line-height: 1;
+  user-select: none;
+}
+
+.atomic-dur-step:hover {
+  background: var(--th-hover);
+  color: var(--atomic-progress);
+}
+
+.atomic-dur-step:active {
+  background: color-mix(in srgb, var(--atomic-progress) 10%, transparent);
+}
+
+.atomic-dur-value {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 0 6px;
+  border-left: 1px solid var(--th-glass-subtle-border);
+  border-right: 1px solid var(--th-glass-subtle-border);
+  min-width: 44px;
+  justify-content: center;
+}
+
+.atomic-dur-num {
+  font-family: 'SF Mono', 'Fira Mono', 'Roboto Mono', Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+  line-height: 32px;
+}
+
+/* Editable number input inside the stepper — looks like the static number */
+.atomic-dur-input {
+  width: 28px;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid transparent;
+  outline: none;
+  font-family: 'SF Mono', 'Fira Mono', 'Roboto Mono', Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+  line-height: 32px;
+  text-align: center;
+  padding: 0;
+  cursor: text;
+  transition: border-color 0.15s ease;
+  -moz-appearance: textfield;
+}
+
+.atomic-dur-input:focus {
+  border-bottom-color: var(--atomic-progress);
+}
+
+/* Hide native spin buttons */
+.atomic-dur-input::-webkit-inner-spin-button,
+.atomic-dur-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.atomic-dur-unit {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-bottom: 1px;
+}
+
+.atomic-dur-colon {
+  font-size: 16px;
+  color: var(--color-text-muted);
+  font-weight: 200;
+  line-height: 1;
+  margin: 0 -2px;
+}
+
+/* Start button — solid accent, Apple CTA style */
+.atomic-start-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 16px;
+  background: var(--atomic-progress);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--atomic-progress) 35%, transparent),
+              0 4px 12px color-mix(in srgb, var(--atomic-progress) 20%, transparent);
+  transition: opacity 0.18s ease, transform 0.14s ease, box-shadow 0.18s ease;
+  font-family: var(--font-sans);
+}
+
+.atomic-start-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--atomic-progress) 40%, transparent),
+              0 8px 20px color-mix(in srgb, var(--atomic-progress) 25%, transparent);
+}
+
+.atomic-start-btn:active:not(:disabled) {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.atomic-start-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ═══════════════════════════════════════════════════════
+   RUNNING CONTROLS
+   ═══════════════════════════════════════════════════════ */
+.atomic-running-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.atomic-running-hint {
+  font-size: 10.5px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Delete button — mirrors existing Trash2 icon button style */
+.atomic-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+.atomic-delete-btn:hover {
+  background: var(--color-red-light);
+  color: var(--color-red);
+}
+
+/* ═══════════════════════════════════════════════════════
+   CONFIRM / COMPLETION MODALS
+   ═══════════════════════════════════════════════════════ */
+.atomic-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--th-modal-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.atomic-confirm-box,
+.atomic-complete-box {
+  background: var(--th-modal-bg);
+  border: 1px solid var(--th-glass-border);
+  border-radius: 20px;
+  padding: 26px 24px 20px;
+  max-width: 300px;
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.atomic-confirm-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--atomic-urgent) 10%, transparent);
+  color: var(--atomic-urgent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+
+.atomic-complete-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-green) 12%, transparent);
+  color: var(--color-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
+}
+
+.atomic-confirm-title,
+.atomic-complete-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: center;
+}
+
+.atomic-complete-label {
+  font-size: 13px;
+  color: var(--atomic-progress);
+  font-weight: 500;
+}
+
+.atomic-confirm-desc,
+.atomic-complete-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.atomic-confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.atomic-btn-cancel,
+.atomic-btn-danger,
+.atomic-btn-primary {
+  flex: 1;
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.18s ease, transform 0.14s ease;
+  font-family: var(--font-sans);
+}
+
+/* Cancel — glass-subtle pill */
+.atomic-btn-cancel {
+  background: var(--th-glass-subtle-bg);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--th-glass-subtle-border);
+}
+
+.atomic-btn-cancel:hover {
+  background: var(--th-hover);
+}
+
+/* Danger — solid red */
+.atomic-btn-danger {
+  background: var(--atomic-urgent);
+  color: white;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--atomic-urgent) 30%, transparent);
+}
+
+.atomic-btn-danger:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* Primary — solid accent */
+.atomic-btn-primary {
+  background: var(--atomic-progress);
+  color: white;
+  margin-top: 4px;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--atomic-progress) 30%, transparent);
+}
+
+.atomic-btn-primary:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ═══════════════════════════════════════════════════════
+   HISTORY PANEL — today's atomic session list
+   ═══════════════════════════════════════════════════════ */
+
+.hist-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--th-modal-overlay);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.hist-panel {
+  background: var(--th-modal-bg);
+  border: 1px solid var(--th-glass-border);
+  border-radius: 18px;
+  padding: 0;
+  width: 320px;
+  max-height: 480px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18), 0 8px 24px rgba(0, 0, 0, 0.10);
+  overflow: hidden;
+}
+
+.hist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--th-divider);
+  flex-shrink: 0;
+}
+
+.hist-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.01em;
+}
+
+.hist-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--th-hover);
+  border: none;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+.hist-close:hover {
+  background: var(--th-glass-subtle-border);
+  color: var(--color-text-primary);
+}
+
+.hist-list {
+  overflow-y: auto;
+  padding: 10px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hist-list::-webkit-scrollbar { width: 4px; }
+.hist-list::-webkit-scrollbar-track { background: transparent; }
+.hist-list::-webkit-scrollbar-thumb {
+  background: var(--th-glass-subtle-border);
+  border-radius: 4px;
+}
+
+.hist-empty {
+  padding: 28px 18px;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.hist-item {
+  background: var(--th-glass-subtle-bg);
+  border: 1px solid var(--th-glass-subtle-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.hist-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hist-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hist-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.hist-tag-done {
+  background: rgba(52, 199, 89, 0.12);
+  color: var(--color-green);
+}
+
+.hist-tag-del {
+  background: color-mix(in srgb, var(--atomic-urgent) 10%, transparent);
+  color: var(--atomic-urgent);
+}
+
+.hist-tag-run {
+  background: color-mix(in srgb, var(--atomic-progress) 10%, transparent);
+  color: var(--atomic-progress);
+}
+
+.hist-item-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hist-time {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.hist-dur {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════════════════════
+   DIARY MODAL
+   ═══════════════════════════════════════════════════════ */
+
+.diary-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--th-modal-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.diary-overlay-full {
+  background: transparent;
+  backdrop-filter: none;
+}
+
+/* Compact card */
+.diary-modal-compact {
+  width: 360px;
+  max-height: 88vh;
+  border-radius: 20px;
+  background: var(--th-modal-bg);
+  border: 1px solid var(--th-glass-border);
+  box-shadow: 0 28px 80px rgba(0,0,0,0.22), 0 8px 24px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Fullscreen card */
+.diary-modal-full {
+  position: fixed;
+  inset: 20px;
+  border-radius: 20px;
+  background: var(--th-modal-bg);
+  border: 1px solid var(--th-glass-border);
+  box-shadow: 0 28px 80px rgba(0,0,0,0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.diary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--th-divider);
+  flex-shrink: 0;
+}
+
+.diary-header-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.diary-header-icon {
+  color: var(--color-amber);
+  opacity: 0.85;
+}
+
+.diary-header-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.diary-saving-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--color-amber);
+  animation: diary-blink 1s ease-in-out infinite;
+}
+
+.diary-saved-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--color-green);
+  opacity: 0.8;
+}
+
+@keyframes diary-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.diary-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.diary-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.diary-icon-btn:hover {
+  background: var(--th-hover);
+  color: var(--color-text-primary);
+}
+
+/* State messages */
+.diary-state-msg {
+  padding: 32px 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+/* Folder banner */
+.diary-folder-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 24px;
+}
+
+.diary-folder-icon { color: var(--color-amber); }
+
+.diary-folder-text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.diary-folder-btn {
+  padding: 8px 20px;
+  background: var(--atomic-progress);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--atomic-progress) 30%, transparent);
+  transition: opacity 0.18s ease, transform 0.14s ease;
+  font-family: var(--font-sans);
+}
+
+.diary-folder-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
+/* Tabs (compact mode) */
+.diary-tabs {
+  display: flex;
+  padding: 8px 12px 0;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.diary-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 8px 8px 0 0;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+.diary-tab.active {
+  background: var(--th-glass-subtle-bg);
+  color: var(--color-text-primary);
+  border: 1px solid var(--th-glass-subtle-border);
+  border-bottom: 1px solid var(--th-modal-bg);
+  margin-bottom: -1px;
+}
+
+.diary-tab-count {
+  background: var(--atomic-count-bg);
+  color: var(--atomic-count-color);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+
+/* Compact body */
+.diary-compact-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Full body (two columns) */
+.diary-full-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.diary-full-divider {
+  width: 1px;
+  background: var(--th-divider);
+  flex-shrink: 0;
+}
+
+/* Main diary textarea section */
+.diary-main-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px;
+}
+
+.diary-main-textarea {
+  flex: 1;
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  resize: none;
+  padding: 4px 4px;
+}
+
+.diary-main-textarea::placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Notes section */
+.diary-notes-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 220px;
+}
+
+.diary-notes-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  flex-shrink: 0;
+}
+
+.diary-notes-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.diary-add-note-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--th-glass-subtle-bg);
+  border: 1px solid var(--th-glass-subtle-border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+.diary-add-note-btn:hover { background: var(--th-hover); }
+
+.diary-notes-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.diary-notes-list::-webkit-scrollbar { width: 4px; }
+.diary-notes-list::-webkit-scrollbar-track { background: transparent; }
+.diary-notes-list::-webkit-scrollbar-thumb {
+  background: var(--th-glass-subtle-border);
+  border-radius: 4px;
+}
+
+.diary-notes-empty {
+  text-align: center;
+  padding: 24px 12px;
+  font-size: 12.5px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Note card */
+.diary-note-card {
+  border-radius: 12px;
+  border: 1px solid;
+  padding: 10px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.diary-note-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.diary-note-time {
+  font-size: 10px;
+  color: rgba(0,0,0,0.38);
+  font-variant-numeric: tabular-nums;
+}
+
+.diary-note-color-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.diary-note-color-btn:hover { transform: scale(1.25); }
+
+.diary-note-color-picker {
+  position: absolute;
+  top: 16px;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 8px;
+  background: var(--th-modal-bg);
+  border: 1px solid var(--th-glass-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  width: 112px;
+  z-index: 10;
+}
+
+.diary-note-color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease;
+}
+
+.diary-note-color-dot:hover { transform: scale(1.15); }
+.diary-note-color-dot.active { border-color: rgba(0,0,0,0.35); }
+
+.diary-note-delete {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.diary-note-delete:hover {
+  background: rgba(255,59,48,0.12);
+  color: #ff3b30;
+}
+
+.diary-note-text {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(0,0,0,0.75);
+  font-family: var(--font-sans);
+  resize: none;
+}
+
+/* Footer */
+.diary-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid var(--th-divider);
+  flex-shrink: 0;
+}
+
+.diary-footer-hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diary-footer-change {
+  font-size: 11px;
+  color: var(--atomic-progress);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 5px;
+  transition: background 0.15s ease;
+  font-family: var(--font-sans);
+  flex-shrink: 0;
+}
+
+.diary-footer-change:hover { background: color-mix(in srgb, var(--atomic-progress) 10%, transparent); }
+
+/* ═══════════════════════════════════════════════════════
+   WEEK VIEW
+   ═══════════════════════════════════════════════════════ */
+
+.wv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 350;
+  background: var(--th-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Top bar */
+.wv-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: var(--th-modal-bg);
+  border-bottom: 1px solid var(--th-divider);
+  backdrop-filter: blur(20px);
+  flex-shrink: 0;
+  gap: 16px;
+}
+
+.wv-topbar-left  { display: flex; align-items: center; gap: 10px; flex: 1; }
+.wv-topbar-center { display: flex; justify-content: center; }
+.wv-topbar-right { display: flex; align-items: center; gap: 14px; flex: 1; justify-content: flex-end; }
+
+.wv-topbar-icon { color: var(--color-green); }
+
+.wv-month-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.wv-nav-btns { display: flex; align-items: center; gap: 2px; }
+
+.wv-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wv-nav-btn:hover { background: var(--th-hover); color: var(--color-text-primary); }
+
+.wv-today-btn {
+  width: auto;
+  padding: 0 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+}
+
+/* Mode toggle — Apple segmented control style */
+.wv-mode-toggle {
+  display: flex;
+  background: var(--th-glass-subtle-bg);
+  border: 1px solid var(--th-glass-subtle-border);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.wv-mode-btn {
+  padding: 5px 14px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  font-family: var(--font-sans);
+}
+
+.wv-mode-btn.active {
+  background: var(--th-modal-bg);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}
+
+.wv-week-total {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.wv-week-total strong { color: var(--color-text-primary); }
+
+.wv-range-hint {
+  font-size: 11.5px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wv-close-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--th-hover);
+  border: none;
+  color: var(--color-text-muted);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wv-close-btn:hover { background: var(--th-glass-subtle-border); color: var(--color-text-primary); }
+
+/* Grid layout — single scroll container */
+.wv-scroll-outer {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.wv-scroll-outer::-webkit-scrollbar { width: 6px; }
+.wv-scroll-outer::-webkit-scrollbar-track { background: transparent; }
+.wv-scroll-outer::-webkit-scrollbar-thumb {
+  background: var(--th-glass-subtle-border);
+  border-radius: 4px;
+}
+
+.wv-scroll-inner {
+  display: flex;
+  position: relative;
+  min-width: 100%;
+}
+
+/* Sticky time axis inside scroll */
+.wv-time-axis {
+  width: 50px;
+  flex-shrink: 0;
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  background: var(--th-modal-bg);
+  border-right: 1px solid var(--th-divider);
+}
+
+.wv-hour-label {
+  position: absolute;
+  right: 6px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  line-height: 1;
+}
+
+/* Days area */
+.wv-days-area {
+  flex: 1;
+  display: flex;
+  position: relative;
+  min-width: 0;
+}
+
+/* Hour grid lines */
+.wv-hour-line {
+  position: absolute;
+  left: 0; right: 0;
+  height: 1px;
+  background: var(--th-divider);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Day column */
+.wv-day-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--th-divider);
+  position: relative;
+  z-index: 1;
+}
+
+.wv-day-col:last-child { border-right: none; }
+
+.wv-today .wv-day-header {
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--th-modal-bg));
+}
+
+.wv-today .wv-day-name,
+.wv-today .wv-day-date { color: var(--color-accent); }
+
+/* Day column header (sticky top) */
+.wv-day-header {
+  height: 68px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--th-modal-bg);
+  border-bottom: 1px solid var(--th-divider);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 4px;
+  flex-shrink: 0;
+}
+
+.wv-day-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wv-day-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.wv-day-total {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wv-day-total.has-time { color: var(--color-green); font-weight: 600; }
+
+/* Day body */
+.wv-day-body {
+  flex: 1;
+  position: relative;
+}
+
+/* Event block */
+.wv-block {
+  position: absolute;
+  border-radius: 5px;
+  border-left: 3px solid;
+  padding: 3px 6px;
+  overflow: hidden;
+  cursor: default;
+  box-sizing: border-box;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+}
+
+.wv-block:hover {
+  opacity: 0.9;
+  z-index: 5;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.14);
+}
+
+.wv-block-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Single-line label for short blocks (22–38px) */
+.wv-block-label-sm {
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 22px;   /* vertically centered in tiny block */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.wv-block-time {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  opacity: 0.72;
+  margin-top: 1px;
+  overflow: hidden;
+  white-space: nowrap;
+}

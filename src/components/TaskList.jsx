@@ -1,7 +1,7 @@
 import TaskItem from './TaskItem.jsx';
 import { ClipboardList } from 'lucide-react';
 
-export default function TaskList({ tasks, selectedDate, onComplete, onHammer, onDelete }) {
+export default function TaskList({ tasks, selectedDate, onComplete, onEditContent, onTimerStop, onDelete }) {
     const sorted = [...tasks].sort((a, b) => {
         if (a.status === 'completed' && b.status !== 'completed') return 1;
         if (a.status !== 'completed' && b.status === 'completed') return -1;
@@ -41,7 +41,8 @@ export default function TaskList({ tasks, selectedDate, onComplete, onHammer, on
                         task={task}
                         selectedDate={selectedDate}
                         onComplete={onComplete}
-                        onHammer={onHammer}
+                        onEditContent={onEditContent}
+                        onTimerStop={onTimerStop}
                         onDelete={onDelete}
                     />
                 ))}

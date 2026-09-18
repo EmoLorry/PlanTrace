@@ -135,3 +135,21 @@ export function shiftDate(dateStr, days) {
     d.setDate(d.getDate() + days);
     return formatDateBJ(d);
 }
+
+/**
+ * Get milliseconds remaining until 23:59:59 BJ time today.
+ * Returns 0 if already past that time.
+ */
+export function getMsUntilEndOfDayBJ() {
+    const now = getNowBJ();
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const diff = endOfDay.getTime() - now.getTime();
+    return Math.max(0, diff);
+}
+
+/**
+ * Check if current BJ time is >= 23:59:59
+ */
+export function isEndOfDayBJ() {
+    return getMsUntilEndOfDayBJ() <= 0;
+}

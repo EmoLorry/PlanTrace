@@ -10,7 +10,7 @@ export function getAllLogs() {
 /**
  * Append an immutable log entry. Never modify existing logs.
  */
-export function appendLog({ task_id, action_type, target_date }) {
+export function appendLog({ task_id, action_type, target_date, duration_seconds }) {
     const logs = getAllLogs();
     const entry = {
         log_id: generateId('log'),
@@ -19,6 +19,9 @@ export function appendLog({ task_id, action_type, target_date }) {
         target_date,
         timestamp: Date.now(),
     };
+    if (duration_seconds !== undefined) {
+        entry.duration_seconds = duration_seconds;
+    }
     logs.push(entry);
     setJSON(LOG_KEY, logs);
     return entry;
