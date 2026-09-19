@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeContext.jsx';
 import ThemeSwitcher from './components/ThemeSwitcher.jsx';
 import TraceStar from './pages/TraceStar/ThreeDTraceView.jsx';
-import { Sparkles, Star, BookOpen, CalendarDays } from 'lucide-react';
+import { Sparkles, Star, BookOpen, CalendarDays, RefreshCw } from 'lucide-react';
 import Sidebar from './components/Sidebar.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import TaskList from './components/TaskList.jsx';
@@ -12,6 +12,8 @@ import PlanFutureModal from './components/PlanFutureModal.jsx';
 import AtomicTimer from './components/AtomicTimer.jsx';
 import DiaryModal from './components/DiaryModal.jsx';
 import WeekView from './components/WeekView.jsx';
+import UpdateModal from './components/UpdateModal.jsx';
+import { checkUpdate } from './store/versionStore.js';
 import { getTodayBJ } from './store/dateUtils.js';
 import { getJSON, setJSON } from './store/storage.js';
 import {
@@ -40,10 +42,32 @@ function AppContent() {
   const [showPlanFuture, setShowPlanFuture] = useState(false);
   const [showDiary,      setShowDiary]      = useState(false);
   const [showWeekView,   setShowWeekView]   = useState(false);
+  const [updateManifest, setUpdateManifest] = useState(null);  // remote version info
+  const [updateIsManual, setUpdateIsManual] = useState(false); // triggered by button?
   const [showEdge, setShowEdge] = useState(() => {
     const stored = getJSON('show_edge');
     return stored !== null ? stored : true;
   });
+
+  // Auto version check on mount — 1s delay, silent on error
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      const manifest = await checkUpdate({ force: false });
+      if (manifest) setUpdateManifest(manifest);
+    }, 1000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const handleCheckUpdate = async () => {
+    setUpdateIsManual(true);
+    const manifest = await checkUpdate({ force: true });
+    if (manifest) {
+      setUpdateManifest(manifest);
+    } else {
+      // Already up to date — brief visual feedback via title flash
+      alert(`PlanTrace 已是最新版本 ✓`);
+    }
+  };
 
   const refresh = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -128,6 +152,13 @@ function AppContent() {
           <main className="flex-1 h-full overflow-y-auto py-6 px-8 relative">
             {/* Top-right icon controls */}
             <div className="flex items-center justify-end gap-1 mb-2">
+              <button
+                onClick={handleCheckUpdate}
+                className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-sky-400"
+                title="检查更新"
+              >
+                <RefreshCw size={18} />
+              </button>
               <button
                 onClick={() => setShowDiary(true)}
                 className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-amber-400"
@@ -220,6 +251,15 @@ function AppContent() {
             <WeekView
               initialDate={selectedDate}
               onClose={() => setShowWeekView(false)}
+            />
+          )}
+
+          {updateManifest && (
+            <UpdateModal
+              manifest={updateManifest}
+              isManual={updateIsManual}
+              onClose={() => { setUpdateManifest(null); setUpdateIsManual(false); }}
+              onSkip={() => { setUpdateManifest(null); setUpdateIsManual(false); }}
             />
           )}
         </div>
