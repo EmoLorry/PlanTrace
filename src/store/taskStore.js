@@ -1,8 +1,10 @@
 import { getJSON, setJSON } from './storage.js';
-import { generateId, getTodayBJ, getPastDaysBJ } from './dateUtils.js';
-import { appendLog } from './actionLogStore.js';
+import { generateId, getTodayBJ, getPastDaysBJ, isPast } from './dateUtils.js';
+import { appendLog, getAllLogs } from './actionLogStore.js';
 
 const TASKS_KEY = 'tasks';
+
+const BJ_OFFSET = 8 * 60 * 60000;
 
 function getAllTasks() {
     return getJSON(TASKS_KEY) || [];
@@ -10,6 +12,35 @@ function getAllTasks() {
 
 function saveTasks(tasks) {
     setJSON(TASKS_KEY, tasks);
+}
+
+function getBJDateFromTimestamp(timestamp) {
+    if (!timestamp) return null;
+    const date = new Date(timestamp);
+    const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
+    const bjDate = new Date(utcMs + BJ_OFFSET);
+    const year = bjDate.getFullYear();
+    const month = String(bjDate.getMonth() + 1).padStart(2, '0');
+    const day = String(bjDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function hasCompleteLogOnDate(taskId, dateStr, logs) {
+    return logs.some(
+        (log) => log.task_id === taskId
+            && log.action_type === 'COMPLETE'
+            && log.target_date === dateStr
+    );
+}
+
+function taskCompletedOnDate(task, dateStr, logs) {
+    if (hasCompleteLogOnDate(task.id, dateStr, logs)) return true;
+    if (getBJDateFromTimestamp(task.completed_at) === dateStr) return true;
+
+    const hasAnyCompleteLog = logs.some(
+        (log) => log.task_id === task.id && log.action_type === 'COMPLETE'
+    );
+    return task.status === 'completed' && !task.completed_at && !hasAnyCompleteLog;
 }
 
 /**
@@ -207,7 +238,8 @@ export function getPendingRolloverCandidates() {
  * Get count of pending tasks for a given date
  */
 export function getPendingCountForDate(dateStr) {
-    return getTasksForDate(dateStr).filter((t) => t.status === 'pending').length;
+    const logs = getAllLogs();
+    return getTasksForDate(dateStr).filter((t) => !taskCompletedOnDate(t, dateStr, logs)).length;
 }
 
 /**
@@ -216,7 +248,9 @@ export function getPendingCountForDate(dateStr) {
 export function getDateStatus(dateStr) {
     const tasks = getTasksForDate(dateStr);
     if (tasks.length === 0) return 'empty';
-    const hasPending = tasks.some((t) => t.status === 'pending');
-    if (hasPending) return 'has_pending';
-    return 'all_completed';
+    const logs = getAllLogs();
+    const hasOpenTask = tasks.some((task) => !taskCompletedOnDate(task, dateStr, logs));
+
+    if (!hasOpenTask) return 'all_completed';
+    return isPast(dateStr) ? 'historical_incomplete' : 'has_pending';
 }

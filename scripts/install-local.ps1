@@ -135,7 +135,10 @@ function New-PlanTraceShortcut {
         return
     }
 
-    $target = Join-Path $Root 'start.bat'
+    $target = Join-Path $Root 'Start-PlanTrace-Windows.bat'
+    if (-not (Test-Path -LiteralPath $target)) {
+        $target = Join-Path $Root 'start.bat'
+    }
     $shortcutPath = Join-Path $desktop 'PlanTrace.lnk'
 
     try {
@@ -162,7 +165,10 @@ function Start-PlanTrace {
     param([string]$Root)
 
     Write-Step 'Launching PlanTrace'
-    $startBat = Join-Path $Root 'start.bat'
+    $startBat = Join-Path $Root 'Start-PlanTrace-Windows.bat'
+    if (-not (Test-Path -LiteralPath $startBat)) {
+        $startBat = Join-Path $Root 'start.bat'
+    }
     Start-Process -FilePath $startBat -WorkingDirectory $Root
 }
 

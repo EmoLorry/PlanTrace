@@ -1,12 +1,32 @@
 {
-  "version": "1.2.1",
+  "version": "1.3.1",
   "releaseDate": "2026-09-19",
   "releaseNotes": [
-    "修复 Windows 下软件内一键更新在安装依赖阶段可能出现 spawn EINVAL 的问题",
-    "优化 GitHub 下载通道，增加 codeload 优先、无响应自动切换备用通道",
-    "更新弹窗增加慢网络提示和下载进度回传"
+    "修复侧边栏日期状态光点：按当天完成记录判断绿色、蓝色和灰色",
+    "修复跨日期任务在今天完成后，历史日期被误判为全部完成的问题",
+    "状态光点增加悬浮说明，便于确认当前日期状态"
   ],
   "history": [
+    {
+      "version": "1.3.1",
+      "releaseDate": "2026-09-19",
+      "releaseNotes": [
+        "修复侧边栏日期状态光点：按当天完成记录判断绿色、蓝色和灰色",
+        "修复跨日期任务在今天完成后，历史日期被误判为全部完成的问题",
+        "状态光点增加悬浮说明，便于确认当前日期状态"
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "releaseDate": "2026-09-19",
+      "releaseNotes": [
+        "新增 macOS 一键安装、启动、手动更新脚本",
+        "Windows 脚本增加 Windows 后缀命名，并保留旧入口兼容",
+        "软件内一键更新改为跨平台逻辑：Windows 使用 PowerShell，macOS 使用 unzip/npm",
+        "新增 .gitattributes，统一 Windows 与 macOS 的脚本换行策略",
+        "启动地址统一为 localhost:5173，避免 127.0.0.1 与 localhost 数据隔离"
+      ]
+    },
     {
       "version": "1.2.1",
       "releaseDate": "2026-09-19",

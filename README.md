@@ -4,12 +4,12 @@
 >
 > A beautiful local-first task manager with atomic timer, diary, and weekly schedule visualization.
 
-![version](https://img.shields.io/badge/版本-v1.1.0-blueviolet)
+![version](https://img.shields.io/badge/版本-v1.3.1-blueviolet)
 ![react](https://img.shields.io/badge/React-19-61dafb)
 ![vite](https://img.shields.io/badge/Vite-7-646cff)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
 ![license](https://img.shields.io/badge/License-NonCommercial-red)
-![platform](https://img.shields.io/badge/Platform-Windows-0078d4)
+![platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS-0078d4)
 
 ---
 
@@ -98,7 +98,9 @@
 
 ### 方式一：一键安装（推荐新用户）
 
-双击 `Install-PlanTrace-From-GitHub.bat`
+Windows 双击 `Install-PlanTrace-From-GitHub-Windows.bat`
+
+macOS 双击 `Install-PlanTrace-From-GitHub-macOS.command`
 
 **全自动完成以下步骤：**
 1. 检测 Node.js（未安装则自动通过 **winget** 安装 LTS 版本）
@@ -108,7 +110,7 @@
 5. 自动启动
 
 > [!NOTE]
-> **Windows 10 / 11** 自带 winget，无需任何手动准备，直接双击即可。
+> **Windows 10 / 11** 通常自带 winget，无需任何手动准备，直接双击即可。
 > 极少数情况 winget 不可用时，脚本会自动打开 Node.js 下载页面引导手动安装。
 
 ---
@@ -132,7 +134,9 @@ npm run dev
 
 ### 方式三：双击启动（已安装用户）
 
-双击项目根目录的 **`start.bat`** 或桌面 **PlanTrace 图标**
+Windows 双击项目根目录的 **`start.bat`** 或桌面 **PlanTrace 图标**。
+
+macOS 双击项目根目录的 **`start-macOS.command`** 或桌面 **PlanTrace.command**。
 
 ---
 
@@ -141,7 +145,7 @@ npm run dev
 | 方式 | 适用场景 |
 |------|---------|
 | 应用内 `↻` 图标 → 一键更新 | 应用正在运行，最方便 |
-| 双击 `Update-PlanTrace.bat` | 应用未运行，命令行更新 |
+| 双击 `Update-PlanTrace-Windows.bat` / `Update-PlanTrace-macOS.command` | 应用未运行，命令行更新 |
 
 两种方式均**自动保护用户数据**，不触碰 `backups/`、`start.bat` 及浏览器 localStorage。
 
@@ -203,9 +207,12 @@ PlanTrace/
 ├── public/
 │   └── version.json            # 远端版本清单（推送后用于检测更新）
 ├── backups/                    # 导出的 JSON 备份（自动创建）
-├── Install-PlanTrace-From-GitHub.bat   # 一键安装
-├── Update-PlanTrace.bat                # 一键更新
-├── start.bat                           # 日常启动
+├── Install-PlanTrace-From-GitHub-Windows.bat # Windows 一键安装
+├── Install-PlanTrace-From-GitHub-macOS.command # macOS 一键安装
+├── Update-PlanTrace-Windows.bat        # Windows 一键更新
+├── Update-PlanTrace-macOS.command      # macOS 一键更新
+├── start.bat                           # Windows 兼容启动入口
+├── start-macOS.command                 # macOS 日常启动
 └── src/
     ├── version.js              # 本地版本常量
     ├── App.jsx                 # 根组件 & 状态管理
@@ -291,4 +298,3 @@ PlanTrace/
 > 商业授权请通过 GitHub 联系作者。
 
 © 2026 [EmoLorry](https://github.com/EmoLorry) · [查看完整许可协议](LICENSE)
-

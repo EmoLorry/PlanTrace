@@ -50,8 +50,8 @@ $zipPath = Join-Path $tempRoot 'source.zip'
 $extractDir = Join-Path $tempRoot 'extract'
 $preserveDir = Join-Path $tempRoot 'preserve'
 $zipUrls = @(
-    "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip",
-    "https://codeload.github.com/$RepoOwner/$RepoName/zip/refs/heads/$Branch"
+    "https://codeload.github.com/$RepoOwner/$RepoName/zip/refs/heads/$Branch",
+    "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip"
 )
 
 try {

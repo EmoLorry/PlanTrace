@@ -34,14 +34,19 @@ export default function Sidebar({ selectedDate, onDateSelect, onPlanFuture }) {
         onDateSelect(todayStr);
     };
 
-    function getDotClass(dateStr) {
+    function getDotMeta(dateStr) {
         const status = getDateStatus(dateStr);
         if (status === 'empty') return null;
-        const past = isPast(dateStr);
-        if (past) {
-            return status === 'all_completed' ? 'dot-green' : 'dot-grey';
+        if (status === 'all_completed') {
+            return { className: 'dot-green', title: '当日全部完成' };
         }
-        return status === 'has_pending' ? 'dot-blue' : status === 'all_completed' ? 'dot-green' : null;
+        if (status === 'historical_incomplete') {
+            return { className: 'dot-grey', title: '历史未完成' };
+        }
+        if (status === 'has_pending') {
+            return { className: 'dot-blue', title: '有待办中任务' };
+        }
+        return null;
     }
 
     return (
@@ -92,7 +97,7 @@ export default function Sidebar({ selectedDate, onDateSelect, onPlanFuture }) {
                     const isPastDate = isPast(dateStr);
                     const day = dateStr.split('-')[2];
                     const dayName = getDayName(dateStr);
-                    const dotClass = getDotClass(dateStr);
+                    const dotMeta = getDotMeta(dateStr);
                     const pendingCount = getPendingCountForDate(dateStr);
 
                     return (
@@ -118,9 +123,11 @@ export default function Sidebar({ selectedDate, onDateSelect, onPlanFuture }) {
                             }}
                         >
                             {/* Status Dot */}
-                            {dotClass && (
+                            {dotMeta && (
                                 <span
-                                    className={`absolute top-2.5 right-2.5 w-[7px] h-[7px] rounded-full animate-pulse-glow ${dotClass}`}
+                                    className={`absolute top-2.5 right-2.5 w-[7px] h-[7px] rounded-full animate-pulse-glow ${dotMeta.className}`}
+                                    title={dotMeta.title}
+                                    aria-label={dotMeta.title}
                                 />
                             )}
 

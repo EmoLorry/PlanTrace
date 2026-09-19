@@ -1,11 +1,11 @@
 {
   "name": "plantrace",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.3.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "start": "vite --host 127.0.0.1 --port 5173",
+    "start": "vite --host localhost --port 5173",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

@@ -6,7 +6,7 @@ import path from 'path'
 import os from 'os'
 import https from 'https'
 import http from 'http'
-import { execSync, spawn } from 'child_process'
+import { execFileSync, spawn } from 'child_process'
 import { Buffer } from 'node:buffer'
 import process from 'node:process'
 
@@ -153,6 +153,41 @@ async function downloadFirstAvailable(urls, destPath, send) {
   throw new Error(`All download mirrors failed. ${errors.join(' | ')}`);
 }
 
+function quotePowerShellString(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+function extractZipArchive(zipPath, extractDir) {
+  if (process.platform === 'win32') {
+    execFileSync('powershell.exe', [
+      '-NoProfile',
+      '-Command',
+      `Expand-Archive -LiteralPath ${quotePowerShellString(zipPath)} -DestinationPath ${quotePowerShellString(extractDir)} -Force`,
+    ], { timeout: 60000 });
+    return;
+  }
+
+  execFileSync('unzip', ['-q', zipPath, '-d', extractDir], { timeout: 60000 });
+}
+
+function makeProjectScriptsExecutable(root) {
+  if (process.platform === 'win32') return;
+
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.command')) {
+      try { fs.chmodSync(path.join(root, entry.name), 0o755); } catch { /* ignore */ }
+    }
+  }
+
+  const scriptsDir = path.join(root, 'scripts');
+  if (!fs.existsSync(scriptsDir)) return;
+  for (const entry of fs.readdirSync(scriptsDir, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.sh')) {
+      try { fs.chmodSync(path.join(scriptsDir, entry.name), 0o755); } catch { /* ignore */ }
+    }
+  }
+}
+
 /** Follow HTTP/HTTPS redirects and read a URL as text. */
 function getText(url, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
@@ -219,18 +254,17 @@ async function fetchRemoteVersionManifest() {
 /** Run npm install, streaming stdout/stderr lines back via send(). */
 function runNpmInstall(cwd, send) {
   return new Promise((resolve, reject) => {
-    const npm = spawn(process.env.ComSpec || 'cmd.exe', [
-      '/d',
-      '/s',
-      '/c',
-      'npm.cmd',
+    const command = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : 'npm';
+    const commandArgs = process.platform === 'win32' ? ['/d', '/s', '/c', 'npm.cmd'] : [];
+    const npm = spawn(command, [
+      ...commandArgs,
       'install',
       '--prefer-offline',
       '--loglevel',
       'warn',
     ], {
       cwd,
-      windowsHide: true,
+      windowsHide: process.platform === 'win32',
     });
     npm.stdout.on('data', (d) => {
       const line = d.toString().trim();
@@ -315,10 +349,7 @@ function updatePlugin() {
 
           // ── Step 2: Extract ──
           send({ type: 'step', step: 2, message: '正在解压...' });
-          execSync(
-            `powershell -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${extractDir}' -Force"`,
-            { timeout: 60000 }
-          );
+          extractZipArchive(zipPath, extractDir);
           send({ type: 'progress', message: '解压完成 ✓' });
 
           // Find the inner folder (PlanTrace-main)
@@ -355,6 +386,7 @@ function updatePlugin() {
 
           // Individual files to update (never touch: backups/, .gitignore)
           const FILES = [
+            '.gitattributes',
             'index.html',
             'package.json',
             'package-lock.json',
@@ -364,6 +396,14 @@ function updatePlugin() {
             'start.bat',
             'Install-PlanTrace-From-GitHub.bat',
             'Update-PlanTrace.bat',
+            'Install-PlanTrace-From-GitHub-Windows.bat',
+            'Update-PlanTrace-Windows.bat',
+            'Start-PlanTrace-Windows.bat',
+            'Install-PlanTrace-Local-Windows.bat',
+            'Install-PlanTrace-From-GitHub-macOS.command',
+            'Update-PlanTrace-macOS.command',
+            'start-macOS.command',
+            'install-macOS.command',
             'README.md',
             'DEPLOY.md',
             'LICENSE',
@@ -376,6 +416,8 @@ function updatePlugin() {
               send({ type: 'progress', message: `已更新 ${file} ✓` });
             }
           }
+
+          makeProjectScriptsExecutable(projectDir);
 
           // ── Step 4: npm install ──
           send({ type: 'step', step: 4, message: '正在安装/更新依赖（约1-3分钟）...' });

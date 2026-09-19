@@ -158,8 +158,8 @@ $manifestUrls = @(
     "https://api.github.com/repos/$RepoOwner/$RepoName/contents/public/version.json?ref=$Branch"
 )
 $zipUrls = @(
-    "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip",
-    "https://codeload.github.com/$RepoOwner/$RepoName/zip/refs/heads/$Branch"
+    "https://codeload.github.com/$RepoOwner/$RepoName/zip/refs/heads/$Branch",
+    "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip"
 )
 $tempRoot = Join-Path $env:TEMP ("PlanTraceUpdate_" + [guid]::NewGuid().ToString('N'))
 $zipPath = Join-Path $tempRoot 'source.zip'
@@ -219,6 +219,7 @@ try {
     }
 
     $files = @(
+        '.gitattributes',
         'index.html',
         'package.json',
         'package-lock.json',
@@ -228,6 +229,14 @@ try {
         'start.bat',
         'Install-PlanTrace-From-GitHub.bat',
         'Update-PlanTrace.bat',
+        'Install-PlanTrace-From-GitHub-Windows.bat',
+        'Update-PlanTrace-Windows.bat',
+        'Start-PlanTrace-Windows.bat',
+        'Install-PlanTrace-Local-Windows.bat',
+        'Install-PlanTrace-From-GitHub-macOS.command',
+        'Update-PlanTrace-macOS.command',
+        'start-macOS.command',
+        'install-macOS.command',
         'README.md',
         'DEPLOY.md',
         'LICENSE'
@@ -262,7 +271,11 @@ try {
     if (-not $NoLaunch) {
         $launch = Read-Host 'Start PlanTrace now? (Y/n)'
         if ($launch -notmatch '^(n|no)$') {
-            Start-Process -FilePath (Join-Path $root 'start.bat') -WorkingDirectory $root
+            $startScript = Join-Path $root 'Start-PlanTrace-Windows.bat'
+            if (-not (Test-Path -LiteralPath $startScript)) {
+                $startScript = Join-Path $root 'start.bat'
+            }
+            Start-Process -FilePath $startScript -WorkingDirectory $root
         }
     }
 }
