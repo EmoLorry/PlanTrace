@@ -2,7 +2,7 @@
  * versionStore.js
  * Handles remote version checking with:
  *  - 5-second AbortController timeout (network stall won't block the app)
- *  - 24-hour cooldown between auto-checks
+ *  - cache-busted manifest fetches so newly-published versions are seen quickly
  *  - Per-version dismissal (user can say "skip this version")
  */
 
@@ -18,7 +18,6 @@ const REMOTE_URLS = [
 ];
 
 const TIMEOUT_MS       = 5000;  // abort fetch if no response in 5s
-const CHECK_INTERVAL   = 24 * 60 * 60 * 1000; // 24h in ms
 
 const LS_LAST_CHECK    = 'pt_version_last_check';
 const LS_DISMISSED     = 'pt_version_dismissed';
@@ -39,11 +38,11 @@ export function isNewer(remote, local) {
 }
 
 // ---------------------------------------------------------------------------
-// Auto-check cooldown
+// Auto-check gate. Currently always enabled because the manifest is tiny and
+// update prompts should appear as soon as a newer remote version is published.
 // ---------------------------------------------------------------------------
 export function shouldAutoCheck() {
-    const last = Number(localStorage.getItem(LS_LAST_CHECK) || 0);
-    return Date.now() - last > CHECK_INTERVAL;
+    return true;
 }
 
 export function markChecked() {
@@ -73,7 +72,8 @@ export async function fetchRemoteVersion() {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
         try {
-            const res = await fetch(url, {
+            const cacheBustUrl = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+            const res = await fetch(cacheBustUrl, {
                 signal:  controller.signal,
                 cache:   'no-store',
                 headers: { Accept: 'application/json' },
