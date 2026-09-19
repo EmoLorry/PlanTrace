@@ -81,6 +81,83 @@ function downloadFile(url, destPath) {
   });
 }
 
+async function downloadFirstAvailable(urls, destPath) {
+  const errors = [];
+  for (const url of urls) {
+    try {
+      if (fs.existsSync(destPath)) fs.rmSync(destPath, { force: true });
+      await downloadFile(url, destPath);
+      return url;
+    } catch (err) {
+      errors.push(`${url}: ${err.message}`);
+    }
+  }
+  throw new Error(`All download mirrors failed. ${errors.join(' | ')}`);
+}
+
+/** Follow HTTP/HTTPS redirects and read a URL as text. */
+function getText(url, timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    const fetch = (u) => {
+      const mod = u.startsWith('https') ? https : http;
+      const req = mod.get(u, { headers: { 'User-Agent': 'PlanTrace-Updater/1.0' } }, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          fetch(new URL(res.headers.location, u).toString());
+          return;
+        }
+        if (res.statusCode !== 200) {
+          reject(new Error(`HTTP ${res.statusCode} while reading ${u}`));
+          return;
+        }
+
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => resolve(body));
+      });
+      req.setTimeout(timeoutMs, () => req.destroy(new Error(`Timeout while reading ${u}`)));
+      req.on('error', reject);
+    };
+    fetch(url);
+  });
+}
+
+async function fetchRemoteVersionManifest() {
+  const cacheBust = `t=${Date.now()}`;
+  const sources = [
+    {
+      kind: 'json',
+      url: `https://raw.githubusercontent.com/EmoLorry/PlanTrace/main/public/version.json?${cacheBust}`,
+    },
+    {
+      kind: 'json',
+      url: `https://cdn.jsdelivr.net/gh/EmoLorry/PlanTrace@main/public/version.json?${cacheBust}`,
+    },
+    {
+      kind: 'github-content',
+      url: `https://api.github.com/repos/EmoLorry/PlanTrace/contents/public/version.json?ref=main&${cacheBust}`,
+    },
+  ];
+
+  const errors = [];
+  for (const source of sources) {
+    try {
+      const text = await getText(source.url);
+      if (source.kind === 'github-content') {
+        const payload = JSON.parse(text);
+        const content = String(payload.content || '').replace(/\s/g, '');
+        const decoded = Buffer.from(content, 'base64').toString('utf8');
+        return JSON.parse(decoded);
+      }
+      return JSON.parse(text);
+    } catch (err) {
+      errors.push(`${source.kind}: ${err.message}`);
+    }
+  }
+
+  throw new Error(`Could not fetch remote version manifest. ${errors.join(' | ')}`);
+}
+
 /** Run npm install, streaming stdout/stderr lines back via send(). */
 function runNpmInstall(cwd, send) {
   return new Promise((resolve, reject) => {
@@ -121,6 +198,20 @@ function updatePlugin() {
       });
 
       // POST /api/update/apply — stream update progress
+      server.middlewares.use('/api/update/check', async (req, res) => {
+        if (req.method !== 'GET') { res.statusCode = 405; res.end(); return; }
+        try {
+          const manifest = await fetchRemoteVersionManifest();
+          res.setHeader('Content-Type', 'application/json');
+          res.setHeader('Cache-Control', 'no-store');
+          res.end(JSON.stringify(manifest));
+        } catch (err) {
+          res.statusCode = 502;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+
       server.middlewares.use('/api/update/apply', async (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end(); return; }
 
@@ -146,8 +237,12 @@ function updatePlugin() {
 
           // ── Step 1: Download ZIP ──
           send({ type: 'step', step: 1, message: '正在从 GitHub 下载最新版本...' });
-          const ZIP_URL = 'https://github.com/EmoLorry/PlanTrace/archive/refs/heads/main.zip';
-          await downloadFile(ZIP_URL, zipPath);
+          const ZIP_URLS = [
+            'https://github.com/EmoLorry/PlanTrace/archive/refs/heads/main.zip',
+            'https://codeload.github.com/EmoLorry/PlanTrace/zip/refs/heads/main',
+          ];
+          const usedZipUrl = await downloadFirstAvailable(ZIP_URLS, zipPath);
+          send({ type: 'progress', message: `下载通道: ${usedZipUrl}` });
           send({ type: 'progress', message: '下载完成 ✓' });
 
           // ── Step 2: Extract ──

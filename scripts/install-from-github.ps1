@@ -14,6 +14,30 @@ function Write-Step {
     Write-Host "==> $Message" -ForegroundColor Cyan
 }
 
+function Get-FileFromUrls {
+    param(
+        [string[]]$Urls,
+        [string]$OutFile,
+        [int]$TimeoutSec = 120
+    )
+
+    $lastError = $null
+    foreach ($url in $Urls) {
+        try {
+            if (Test-Path -LiteralPath $OutFile) {
+                Remove-Item -LiteralPath $OutFile -Force
+            }
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $OutFile -TimeoutSec $TimeoutSec
+            return $url
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+    }
+
+    throw "All download mirrors failed. Last error: $lastError"
+}
+
 if (-not $InstallRoot) {
     throw 'LOCALAPPDATA was not found. Pass -InstallRoot to choose an install directory.'
 }
@@ -25,14 +49,18 @@ $tempRoot = Join-Path $env:TEMP ("PlanTraceInstall_" + [guid]::NewGuid().ToStrin
 $zipPath = Join-Path $tempRoot 'source.zip'
 $extractDir = Join-Path $tempRoot 'extract'
 $preserveDir = Join-Path $tempRoot 'preserve'
-$zipUrl = "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip"
+$zipUrls = @(
+    "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip",
+    "https://codeload.github.com/$RepoOwner/$RepoName/zip/refs/heads/$Branch"
+)
 
 try {
     Write-Step 'Preparing installer workspace'
     New-Item -ItemType Directory -Force -Path $tempRoot, $extractDir | Out-Null
 
     Write-Step "Downloading $RepoOwner/$RepoName ($Branch)"
-    Invoke-WebRequest -UseBasicParsing -Uri $zipUrl -OutFile $zipPath
+    $usedZipUrl = Get-FileFromUrls -Urls $zipUrls -OutFile $zipPath -TimeoutSec 120
+    Write-Host "Download source: $usedZipUrl"
 
     Write-Step 'Extracting source'
     Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force

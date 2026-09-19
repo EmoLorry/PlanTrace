@@ -13,8 +13,10 @@ import { APP_VERSION } from '../version.js';
 // Use the raw GitHub URL so it works even when the app is running locally.
 // ---------------------------------------------------------------------------
 const REMOTE_URLS = [
+    '/api/update/check',
     'https://raw.githubusercontent.com/EmoLorry/PlanTrace/main/public/version.json',
     'https://cdn.jsdelivr.net/gh/EmoLorry/PlanTrace@main/public/version.json',
+    'https://api.github.com/repos/EmoLorry/PlanTrace/contents/public/version.json?ref=main',
 ];
 
 const TIMEOUT_MS       = 5000;  // abort fetch if no response in 5s
@@ -79,7 +81,12 @@ export async function fetchRemoteVersion() {
                 headers: { Accept: 'application/json' },
             });
             if (!res.ok) continue;
-            return await res.json();
+            const payload = await res.json();
+            if (payload?.content && payload?.encoding === 'base64') {
+                return JSON.parse(atob(payload.content.replace(/\s/g, '')));
+            }
+            if (payload?.error) continue;
+            return payload;
             // shape: { version, releaseDate, releaseNotes[], downloadUrl }
         } catch {
             // Try the next mirror. Auto-check should stay silent on all failures.

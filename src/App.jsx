@@ -66,7 +66,7 @@ function AppContent() {
     } else if (result.status === 'unreachable') {
       alert('暂时无法连接到更新服务器，请检查 GitHub/jsDelivr 网络访问后再试。');
     } else {
-      alert(`PlanTrace 已是最新版本 ✓\n当前版本：v${result.localVersion}`);
+      alert(`PlanTrace 已是最新版本 ✓\n当前版本：v${result.localVersion}\n远端版本：v${result.remoteVersion || '未知'}`);
     }
   };
 

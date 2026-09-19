@@ -23,14 +23,44 @@ function Get-JsonFromUrl {
     foreach ($url in $Urls) {
         try {
             $resp = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 15
-            return $resp.Content | ConvertFrom-Json
+            $payload = $resp.Content | ConvertFrom-Json
+            if ($payload.content -and $payload.encoding -eq 'base64') {
+                $encoded = [string]$payload.content -replace '\s', ''
+                $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded))
+                return $decoded | ConvertFrom-Json
+            }
+            return $payload
         }
         catch {
             $lastError = $_.Exception.Message
         }
     }
 
-    throw "Could not download version manifest. Check access to GitHub or jsDelivr. Last error: $lastError"
+    throw "Could not download version manifest. Check access to GitHub, GitHub API, or jsDelivr. Last error: $lastError"
+}
+
+function Get-FileFromUrls {
+    param(
+        [string[]]$Urls,
+        [string]$OutFile,
+        [int]$TimeoutSec = 120
+    )
+
+    $lastError = $null
+    foreach ($url in $Urls) {
+        try {
+            if (Test-Path -LiteralPath $OutFile) {
+                Remove-Item -LiteralPath $OutFile -Force
+            }
+            Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $OutFile -TimeoutSec $TimeoutSec
+            return $url
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+    }
+
+    throw "All download mirrors failed. Last error: $lastError"
 }
 
 function Get-LocalVersion {
@@ -124,9 +154,13 @@ if (-not (Test-Path -LiteralPath (Join-Path $root 'package.json'))) {
 
 $manifestUrls = @(
     "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Branch/public/version.json",
-    "https://cdn.jsdelivr.net/gh/$RepoOwner/$RepoName@$Branch/public/version.json"
+    "https://cdn.jsdelivr.net/gh/$RepoOwner/$RepoName@$Branch/public/version.json",
+    "https://api.github.com/repos/$RepoOwner/$RepoName/contents/public/version.json?ref=$Branch"
 )
-$zipUrl = "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip"
+$zipUrls = @(
+    "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip",
+    "https://codeload.github.com/$RepoOwner/$RepoName/zip/refs/heads/$Branch"
+)
 $tempRoot = Join-Path $env:TEMP ("PlanTraceUpdate_" + [guid]::NewGuid().ToString('N'))
 $zipPath = Join-Path $tempRoot 'source.zip'
 $extractDir = Join-Path $tempRoot 'extract'
@@ -158,7 +192,8 @@ try {
 
     Write-Step 'Downloading latest source'
     New-Item -ItemType Directory -Force -Path $tempRoot, $extractDir | Out-Null
-    Invoke-WebRequest -UseBasicParsing -Uri $zipUrl -OutFile $zipPath -TimeoutSec 120
+    $usedZipUrl = Get-FileFromUrls -Urls $zipUrls -OutFile $zipPath -TimeoutSec 120
+    Write-Host "Download source: $usedZipUrl"
 
     Write-Step 'Extracting source'
     Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
