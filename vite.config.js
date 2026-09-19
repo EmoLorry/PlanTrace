@@ -179,8 +179,32 @@ function updatePlugin() {
             }
           }
 
-          // Individual files to update (never touch: start.bat, backups/, .gitignore)
-          const FILES = ['index.html', 'package.json', 'eslint.config.js', 'vite.config.js', 'Update-PlanTrace.bat'];
+          // Directories to merge, not replace. This keeps locally-added helper files.
+          const MERGE_DIRS = ['scripts'];
+          for (const dir of MERGE_DIRS) {
+            const src = path.join(sourceRoot, dir);
+            const dest = path.join(projectDir, dir);
+            if (fs.existsSync(src)) {
+              copyDir(src, dest);
+              send({ type: 'progress', message: `已更新 ${dir}/ ✓` });
+            }
+          }
+
+          // Individual files to update (never touch: backups/, .gitignore)
+          const FILES = [
+            'index.html',
+            'package.json',
+            'package-lock.json',
+            'eslint.config.js',
+            'vite.config.js',
+            'install.bat',
+            'start.bat',
+            'Install-PlanTrace-From-GitHub.bat',
+            'Update-PlanTrace.bat',
+            'README.md',
+            'DEPLOY.md',
+            'LICENSE',
+          ];
           for (const file of FILES) {
             const src = path.join(sourceRoot, file);
             const dest = path.join(projectDir, file);

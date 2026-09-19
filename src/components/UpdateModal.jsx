@@ -147,7 +147,7 @@ export default function UpdateModal({ manifest, onClose, onSkip, isManual = fals
                             <>
                                 <button className="upd-btn-later" onClick={() => setPhase('idle')}>← 返回</button>
                                 <div style={{ flex: 1 }} />
-                                <button className="upd-btn-download" onClick={handleAutoUpdate}>
+                                <button className="upd-btn-download" onClick={handleAutoUpdate} title="重新尝试更新">
                                     <RefreshCw size={14} />
                                     重试
                                 </button>
@@ -226,7 +226,7 @@ export default function UpdateModal({ manifest, onClose, onSkip, isManual = fals
                     )}
                     <div style={{ flex: 1 }} />
                     <button className="upd-btn-later" onClick={onClose}>稍后再说</button>
-                    <button className="upd-btn-download" onClick={handleAutoUpdate}>
+                    <button className="upd-btn-download" onClick={handleAutoUpdate} title="下载并应用最新版本">
                         <Download size={14} />
                         一键更新
                     </button>

@@ -15,7 +15,10 @@
 - `install.bat`
 - `start.bat`
 - `Install-PlanTrace-From-GitHub.bat`
+- `Update-PlanTrace.bat`
 - `scripts/`
+- `src/version.js`
+- `public/version.json`
 - `README.md`
 - `DEPLOY.md`
 
@@ -56,7 +59,7 @@
 如果电脑上已经装好 Git：
 
 ```bash
-git add src public index.html package.json package-lock.json vite.config.js eslint.config.js .gitignore install.bat start.bat Install-PlanTrace-From-GitHub.bat scripts README.md DEPLOY.md
+git add src public index.html package.json package-lock.json vite.config.js eslint.config.js .gitignore install.bat start.bat Install-PlanTrace-From-GitHub.bat Update-PlanTrace.bat scripts README.md DEPLOY.md
 git add -f static
 git commit -m "Update PlanTrace installer and deployment scripts"
 git push origin main

@@ -155,7 +155,8 @@ function AppContent() {
               <button
                 onClick={handleCheckUpdate}
                 className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-sky-400"
-                title="检查更新"
+                title="检查更新 / Check for updates"
+                aria-label="检查更新"
               >
                 <RefreshCw size={18} />
               </button>
