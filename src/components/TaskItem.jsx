@@ -268,7 +268,8 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
                             : 'text-text-muted/40 cursor-not-allowed'
                     }
                 `}
-                title={isCompleted ? 'Completed' : isTodayDate ? 'Mark complete' : 'Can only complete today\'s tasks'}
+                title={isCompleted ? '已完成' : isTodayDate ? '点一下完成今日任务' : '只能完成今天的任务'}
+                aria-label={isCompleted ? '已完成' : isTodayDate ? '完成今日任务' : '只能完成今天的任务'}
             >
                 {isCompleted ? <CheckIcon className="w-5 h-5" /> : <PenIcon className="w-5 h-5" />}
             </button>
@@ -287,6 +288,7 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
                 ) : (
                     <p
                         onDoubleClick={handleEditStart}
+                        title={isPending ? '双击编辑任务名称' : undefined}
                         className={`text-sm leading-relaxed ${isCompleted ? 'line-through text-text-muted' : 'text-text-primary'} ${isPending ? 'cursor-text' : ''}`}
                     >
                         {task.content}
@@ -327,7 +329,8 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
                                     ? 'bg-amber-light text-amber shadow-sm'
                                     : 'hover:bg-amber-light text-text-muted hover:text-amber'
                                 }`}
-                            title={isTimerOn ? 'Stop timer' : 'Start timer'}
+                            title={isTimerOn ? '停止 Hammer 计时' : '开始 Hammer 计时'}
+                            aria-label={isTimerOn ? '停止 Hammer 计时' : '开始 Hammer 计时'}
                         >
                             <Hammer size={15} className={isTimerOn ? 'animate-pulse' : ''} />
                         </button>
@@ -337,7 +340,8 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
                     <button
                         onClick={handleEditStart}
                         className="p-1.5 rounded-lg hover:bg-[var(--th-hover)] text-text-muted hover:text-text-primary transition-all"
-                        title="Edit task"
+                        title="编辑任务名称"
+                        aria-label="编辑任务名称"
                     >
                         <Edit2 size={15} />
                     </button>
@@ -345,7 +349,8 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
                 <button
                     onClick={handleDelete}
                     className="p-1.5 rounded-lg hover:bg-red-light text-text-muted hover:text-red transition-all"
-                    title="Delete task"
+                    title="删除任务"
+                    aria-label="删除任务"
                 >
                     <Trash2 size={15} />
                 </button>

@@ -4,7 +4,7 @@
 >
 > A beautiful local-first task manager with atomic timer, diary, and weekly schedule visualization.
 
-![version](https://img.shields.io/badge/版本-v1.3.1-blueviolet)
+![version](https://img.shields.io/badge/版本-v1.4.1-blueviolet)
 ![react](https://img.shields.io/badge/React-19-61dafb)
 ![vite](https://img.shields.io/badge/Vite-7-646cff)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
@@ -79,6 +79,10 @@
 ### 🌟 TraceStar 星图
 
 3D 星空可视化，每颗星代表一个任务的投入历史——任务越活跃，星越亮。
+
+### 🧭 新手指引
+
+首次启动自动展示轻量引导，帮助新用户快速理解任务、Hammer、原子时钟、日期光点、日记、周视图和 TraceStar。引导卡片会展示实际 UI 的缩略示意，右上角 `?` 图标可随时重新打开。
 
 ### 🔔 版本更新
 
@@ -224,7 +228,8 @@ PlanTrace/
     │   ├── actionLogStore.js   # 只追加的不可变日志
     │   ├── atomicStore.js      # 原子专注记录
     │   ├── diaryStore.js       # 日记 File System Access API 封装
-    │   └── versionStore.js     # 版本检测（远端拉取 + 超时 + 冷却）
+    │   ├── versionStore.js     # 版本检测（远端拉取 + 超时 + 冷却）
+    │   └── onboardingStore.js  # 新手指引显示状态
     └── components/
         ├── Sidebar.jsx         # 日期卡片、状态点、导航
         ├── Toolbar.jsx         # 日期标题 + 添加任务
@@ -234,6 +239,7 @@ PlanTrace/
         ├── DiaryModal.jsx      # 日记弹窗（紧凑/全屏）
         ├── WeekView.jsx        # 周日程时间轴
         ├── UpdateModal.jsx     # 版本更新弹窗（含一键更新进度）
+        ├── OnboardingModal.jsx # 首次启动新手指引
         ├── RolloverModal.jsx   # 跨日继承选择弹窗
         ├── PlanFutureModal.jsx # 规划未来日期弹窗
         ├── ThemeSwitcher.jsx   # 主题切换

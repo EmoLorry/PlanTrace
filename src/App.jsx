@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from './components/ThemeContext.jsx';
 import ThemeSwitcher from './components/ThemeSwitcher.jsx';
 import TraceStar from './pages/TraceStar/ThreeDTraceView.jsx';
-import { Sparkles, Star, BookOpen, CalendarDays, RefreshCw } from 'lucide-react';
+import { CircleHelp, Sparkles, Star, BookOpen, CalendarDays, RefreshCw } from 'lucide-react';
 import Sidebar from './components/Sidebar.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import TaskList from './components/TaskList.jsx';
@@ -13,7 +14,9 @@ import AtomicTimer from './components/AtomicTimer.jsx';
 import DiaryModal from './components/DiaryModal.jsx';
 import WeekView from './components/WeekView.jsx';
 import UpdateModal from './components/UpdateModal.jsx';
+import OnboardingModal from './components/OnboardingModal.jsx';
 import { checkUpdateStatus } from './store/versionStore.js';
+import { markOnboardingSeen, shouldAutoShowOnboarding } from './store/onboardingStore.js';
 import { getTodayBJ } from './store/dateUtils.js';
 import { getJSON, setJSON } from './store/storage.js';
 import {
@@ -41,6 +44,7 @@ function AppContent() {
   const [showPlanFuture, setShowPlanFuture] = useState(false);
   const [showDiary,      setShowDiary]      = useState(false);
   const [showWeekView,   setShowWeekView]   = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [updateManifest, setUpdateManifest] = useState(null);  // remote version info
   const [updateIsManual, setUpdateIsManual] = useState(false); // triggered by button?
   const [showEdge, setShowEdge] = useState(() => {
@@ -54,6 +58,13 @@ function AppContent() {
       const result = await checkUpdateStatus({ force: false });
       if (result.status === 'update') setUpdateManifest(result.manifest);
     }, 1000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (shouldAutoShowOnboarding()) setShowOnboarding(true);
+    }, 700);
     return () => clearTimeout(t);
   }, []);
 
@@ -135,6 +146,11 @@ function AppContent() {
     navigate('/');
   }, [navigate]);
 
+  const handleCloseOnboarding = useCallback(() => {
+    markOnboardingSeen();
+    setShowOnboarding(false);
+  }, []);
+
   return (
     <Routes>
       <Route path="/" element={
@@ -153,6 +169,14 @@ function AppContent() {
           <main className="flex-1 h-full overflow-y-auto py-6 px-8 relative">
             {/* Top-right icon controls */}
             <div className="flex items-center justify-end gap-1 mb-2">
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-accent"
+                title="新手指引 / Quick guide"
+                aria-label="新手指引"
+              >
+                <CircleHelp size={18} />
+              </button>
               <button
                 onClick={handleCheckUpdate}
                 className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-sky-400"
@@ -264,6 +288,12 @@ function AppContent() {
               onSkip={() => { setUpdateManifest(null); setUpdateIsManual(false); }}
             />
           )}
+
+          <AnimatePresence>
+            {showOnboarding && (
+              <OnboardingModal onClose={handleCloseOnboarding} />
+            )}
+          </AnimatePresence>
         </div>
       } />
       <Route path="/tracestar" element={<TraceStar />} />
