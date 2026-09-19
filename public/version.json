@@ -7,7 +7,7 @@
     "原子时钟支持任意时长输入、历史记录面板、跨日期查看",
     "界面优化：毛玻璃效果、颜色系统、按钮样式全面升级",
     "修复日期切换时原子记录不显示的 Bug",
-    "修复 localhost vs 127.0.0.1 数据隔离问题"
+    "修复 localhost vs 127.0.0.1 数据隔离问题",
     "新增用户友好更新功能"
   ],
   "downloadUrl": "https://github.com/EmoLorry/PlanTrace"
