@@ -96,14 +96,32 @@ export async function fetchRemoteVersion() {
 // Returns the remote manifest if an update is available and not dismissed,
 // otherwise returns null.
 // ---------------------------------------------------------------------------
-export async function checkUpdate({ force = false } = {}) {
-    if (!force && !shouldAutoCheck()) return null;
-    markChecked();
+export async function checkUpdateStatus({ force = false } = {}) {
+    if (!force && !shouldAutoCheck()) {
+        return { status: 'cooldown', localVersion: APP_VERSION, remoteVersion: null, manifest: null };
+    }
+
     const remote = await fetchRemoteVersion();
-    if (!remote?.version) return null;
-    if (!isNewer(remote.version, APP_VERSION)) return null;
-    if (!force && isDismissed(remote.version)) return null;
-    return remote;
+    if (!remote?.version) {
+        return { status: 'unreachable', localVersion: APP_VERSION, remoteVersion: null, manifest: null };
+    }
+
+    markChecked();
+
+    if (!isNewer(remote.version, APP_VERSION)) {
+        return { status: 'current', localVersion: APP_VERSION, remoteVersion: remote.version, manifest: remote };
+    }
+
+    if (!force && isDismissed(remote.version)) {
+        return { status: 'dismissed', localVersion: APP_VERSION, remoteVersion: remote.version, manifest: remote };
+    }
+
+    return { status: 'update', localVersion: APP_VERSION, remoteVersion: remote.version, manifest: remote };
+}
+
+export async function checkUpdate({ force = false } = {}) {
+    const result = await checkUpdateStatus({ force });
+    return result.status === 'update' ? result.manifest : null;
 }
 
 export { APP_VERSION };

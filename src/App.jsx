@@ -13,7 +13,7 @@ import AtomicTimer from './components/AtomicTimer.jsx';
 import DiaryModal from './components/DiaryModal.jsx';
 import WeekView from './components/WeekView.jsx';
 import UpdateModal from './components/UpdateModal.jsx';
-import { checkUpdate } from './store/versionStore.js';
+import { checkUpdateStatus } from './store/versionStore.js';
 import { getTodayBJ } from './store/dateUtils.js';
 import { getJSON, setJSON } from './store/storage.js';
 import {
@@ -52,20 +52,21 @@ function AppContent() {
   // Auto version check on mount — 1s delay, silent on error
   useEffect(() => {
     const t = setTimeout(async () => {
-      const manifest = await checkUpdate({ force: false });
-      if (manifest) setUpdateManifest(manifest);
+      const result = await checkUpdateStatus({ force: false });
+      if (result.status === 'update') setUpdateManifest(result.manifest);
     }, 1000);
     return () => clearTimeout(t);
   }, []);
 
   const handleCheckUpdate = async () => {
     setUpdateIsManual(true);
-    const manifest = await checkUpdate({ force: true });
-    if (manifest) {
-      setUpdateManifest(manifest);
+    const result = await checkUpdateStatus({ force: true });
+    if (result.status === 'update') {
+      setUpdateManifest(result.manifest);
+    } else if (result.status === 'unreachable') {
+      alert('暂时无法连接到更新服务器，请检查 GitHub/jsDelivr 网络访问后再试。');
     } else {
-      // Already up to date — brief visual feedback via title flash
-      alert(`PlanTrace 已是最新版本 ✓`);
+      alert(`PlanTrace 已是最新版本 ✓\n当前版本：v${result.localVersion}`);
     }
   };
 
