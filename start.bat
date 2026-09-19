@@ -2,10 +2,11 @@
 setlocal
 title PlanTrace
 cd /d "%~dp0"
+set "PROJECT_DIR=%cd%"
 
 if not exist "%~dp0node_modules\vite\bin\vite.js" (
     echo Dependencies are missing. Installing them now...
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-local.ps1" -ProjectDir "%~dp0" -CreateShortcut:$false
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\install-local.ps1" -ProjectDir "%PROJECT_DIR%" -CreateShortcut:$false
     if errorlevel 1 (
         echo.
         echo Dependency install failed.

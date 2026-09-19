@@ -2,11 +2,12 @@
 setlocal
 title PlanTrace Updater
 cd /d "%~dp0"
+set "PROJECT_DIR=%cd%"
 
 echo.
 echo PlanTrace updater
 echo -----------------
-echo Project: %cd%
+echo Project: %PROJECT_DIR%
 echo.
 
 if not exist "%~dp0scripts\update-from-github.ps1" (
@@ -18,7 +19,7 @@ if not exist "%~dp0scripts\update-from-github.ps1" (
     exit /b 1
 )
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\update-from-github.ps1" -ProjectDir "%~dp0" -RepoOwner "EmoLorry" -RepoName "PlanTrace" -Branch "main"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\update-from-github.ps1" -ProjectDir "%PROJECT_DIR%" -RepoOwner "EmoLorry" -RepoName "PlanTrace" -Branch "main"
 if errorlevel 1 (
     echo.
     echo PlanTrace update failed.

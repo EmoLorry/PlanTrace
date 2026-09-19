@@ -16,10 +16,21 @@ function Write-Step {
 }
 
 function Get-JsonFromUrl {
-    param([string]$Url)
+    param([string[]]$Urls)
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $resp = Invoke-WebRequest -UseBasicParsing -Uri $Url -TimeoutSec 15
-    return $resp.Content | ConvertFrom-Json
+
+    $lastError = $null
+    foreach ($url in $Urls) {
+        try {
+            $resp = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 15
+            return $resp.Content | ConvertFrom-Json
+        }
+        catch {
+            $lastError = $_.Exception.Message
+        }
+    }
+
+    throw "Could not download version manifest. Check access to GitHub or jsDelivr. Last error: $lastError"
 }
 
 function Get-LocalVersion {
@@ -111,7 +122,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $root 'package.json'))) {
     throw "package.json was not found in $root"
 }
 
-$manifestUrl = "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Branch/public/version.json"
+$manifestUrls = @(
+    "https://raw.githubusercontent.com/$RepoOwner/$RepoName/$Branch/public/version.json",
+    "https://cdn.jsdelivr.net/gh/$RepoOwner/$RepoName@$Branch/public/version.json"
+)
 $zipUrl = "https://github.com/$RepoOwner/$RepoName/archive/refs/heads/$Branch.zip"
 $tempRoot = Join-Path $env:TEMP ("PlanTraceUpdate_" + [guid]::NewGuid().ToString('N'))
 $zipPath = Join-Path $tempRoot 'source.zip'
@@ -121,7 +135,7 @@ try {
     $localVersion = Get-LocalVersion -Root $root
 
     Write-Step 'Checking latest version'
-    $remoteManifest = Get-JsonFromUrl -Url $manifestUrl
+    $remoteManifest = Get-JsonFromUrl -Urls $manifestUrls
     $remoteVersion = [string]$remoteManifest.version
 
     Write-Host "Current version: v$localVersion"
@@ -216,6 +230,11 @@ try {
             Start-Process -FilePath (Join-Path $root 'start.bat') -WorkingDirectory $root
         }
     }
+}
+catch {
+    Write-Host ''
+    Write-Host "Update failed: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
 }
 finally {
     if (Test-Path -LiteralPath $tempRoot) {

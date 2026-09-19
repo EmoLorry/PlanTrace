@@ -12,8 +12,10 @@ import { APP_VERSION } from '../version.js';
 // Remote URL
 // Use the raw GitHub URL so it works even when the app is running locally.
 // ---------------------------------------------------------------------------
-const REMOTE_URL =
-    'https://raw.githubusercontent.com/EmoLorry/PlanTrace/main/public/version.json';
+const REMOTE_URLS = [
+    'https://raw.githubusercontent.com/EmoLorry/PlanTrace/main/public/version.json',
+    'https://cdn.jsdelivr.net/gh/EmoLorry/PlanTrace@main/public/version.json',
+];
 
 const TIMEOUT_MS       = 5000;  // abort fetch if no response in 5s
 const CHECK_INTERVAL   = 24 * 60 * 60 * 1000; // 24h in ms
@@ -67,22 +69,26 @@ export function clearDismissal() {
 // Main fetch — never throws; returns null on any error / timeout
 // ---------------------------------------------------------------------------
 export async function fetchRemoteVersion() {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    try {
-        const res = await fetch(REMOTE_URL, {
-            signal:  controller.signal,
-            cache:   'no-store',
-            headers: { Accept: 'application/json' },
-        });
-        if (!res.ok) return null;
-        return await res.json();
-        // shape: { version, releaseDate, releaseNotes[], downloadUrl }
-    } catch {
-        return null; // network error, timeout, CORS, anything — silently ignore
-    } finally {
-        clearTimeout(timer);
+    for (const url of REMOTE_URLS) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+        try {
+            const res = await fetch(url, {
+                signal:  controller.signal,
+                cache:   'no-store',
+                headers: { Accept: 'application/json' },
+            });
+            if (!res.ok) continue;
+            return await res.json();
+            // shape: { version, releaseDate, releaseNotes[], downloadUrl }
+        } catch {
+            // Try the next mirror. Auto-check should stay silent on all failures.
+        } finally {
+            clearTimeout(timer);
+        }
     }
+
+    return null;
 }
 
 // ---------------------------------------------------------------------------
