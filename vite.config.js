@@ -7,6 +7,7 @@ import os from 'os'
 import https from 'https'
 import http from 'http'
 import { execSync, spawn } from 'child_process'
+import { Buffer } from 'node:buffer'
 
 // ---------------------------------------------------------------------------
 // Plugin: backup endpoint

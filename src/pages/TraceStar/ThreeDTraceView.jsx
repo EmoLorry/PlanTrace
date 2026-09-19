@@ -1,9 +1,8 @@
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Html, Sphere } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import { motion, AnimatePresence } from 'framer-motion';
 import { getActiveTasks, hammerTask } from '../../store/taskStore';
 import { isPast, isToday, getTodayBJ } from '../../store/dateUtils';
 import { exportAllLogs } from '../../store/actionLogStore';
@@ -27,7 +26,7 @@ function CameraRig({ focusTarget, resetTrigger, onResetComplete, controlsRef }) 
     const initialPos = useMemo(() => new THREE.Vector3(0, 0, 40), []);
     const initialTarget = useMemo(() => new THREE.Vector3(0, 0, 0), []);
 
-    useFrame((state, delta) => {
+    useFrame(() => {
         if (!controlsRef.current) return;
 
         if (resetTrigger) {
@@ -52,18 +51,24 @@ function CameraRig({ focusTarget, resetTrigger, onResetComplete, controlsRef }) 
 // --- 3. Global Flash Manager ---
 function GlobalFlashManager({ globalFlashTime }) {
     const { gl } = useThree();
+    const rendererRef = useRef(gl);
     const originalExposure = useMemo(() => gl.toneMappingExposure || 1, [gl]);
 
-    useFrame((state, delta) => {
+    useEffect(() => {
+        rendererRef.current = gl;
+    }, [gl]);
+
+    useFrame(() => {
+        const renderer = rendererRef.current;
         const timeSinceFlash = Date.now() - globalFlashTime;
         if (timeSinceFlash < 1000) {
             // Spike exposure up to 3x, then decay back to normal exponentially
             const intensity = Math.max(0, 1 - (timeSinceFlash / 1000));
-            gl.toneMappingExposure = originalExposure + (intensity * 2.5);
+            renderer.toneMappingExposure = originalExposure + (intensity * 2.5);
 
             // Also animate ambient light of the scene if possible, but toneMapping is cleaner
         } else {
-            gl.toneMappingExposure = THREE.MathUtils.lerp(gl.toneMappingExposure, originalExposure, 0.1);
+            renderer.toneMappingExposure = THREE.MathUtils.lerp(renderer.toneMappingExposure, originalExposure, 0.1);
         }
     });
     return null;
@@ -270,7 +275,7 @@ function TaskStar({ task, position, logsCount, isDimmed, onHammer, onRightClick 
 // --- 5. Main Canvas Scene ---
 export default function ThreeDTraceView() {
     const navigate = useNavigate();
-    const [tasks, setTasks] = useState(getActiveTasks());
+    const [tasks] = useState(getActiveTasks);
     const [allLogs, setAllLogs] = useState(exportAllLogs());
 
     // UI states
@@ -284,14 +289,12 @@ export default function ThreeDTraceView() {
 
     // Global Flash / UI Shake states
     const [globalFlashTime, setGlobalFlashTime] = useState(0);
-    const [uiShakeKey, setUiShakeKey] = useState(0);
 
     const handleHammerAction = (taskId) => {
         hammerTask(taskId);
         setAllLogs(exportAllLogs());
         // Trigger global effects
         setGlobalFlashTime(Date.now());
-        setUiShakeKey(prev => prev + 1);
     };
 
     const handleRightClickFocus = (worldPos) => {
@@ -348,7 +351,7 @@ export default function ThreeDTraceView() {
 
             return { task, position: [x, y, z], hammerCount, isDimmed };
         });
-    }, [tasks, allLogs, selectedDateFilter]);
+    }, [tasks, hammerMap, selectedDateFilter]);
 
     const availableDates = useMemo(() => {
         const dates = new Set();

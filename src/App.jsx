@@ -35,8 +35,7 @@ function AppContent() {
   const navigate = useNavigate();
   const todayStr = getTodayBJ();
   const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [tasks, setTasks] = useState([]);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [_refreshKey, setRefreshKey] = useState(0);
   const [showRollover, setShowRollover] = useState(false);
   const [rolloverCandidates, setRolloverCandidates] = useState([]);
   const [showPlanFuture, setShowPlanFuture] = useState(false);
@@ -74,18 +73,20 @@ function AppContent() {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  useEffect(() => {
-    setTasks(getTasksForDate(selectedDate));
-  }, [selectedDate, refreshKey]);
+  const tasks = getTasksForDate(selectedDate);
 
   useEffect(() => {
-    const dismissedDate = getJSON(ROLLOVER_DISMISS_KEY);
-    if (dismissedDate === todayStr) return;
-    const candidates = getPendingRolloverCandidates();
-    if (candidates.length > 0) {
-      setRolloverCandidates(candidates);
-      setShowRollover(true);
-    }
+    const timer = setTimeout(() => {
+      const dismissedDate = getJSON(ROLLOVER_DISMISS_KEY);
+      if (dismissedDate === todayStr) return;
+      const candidates = getPendingRolloverCandidates();
+      if (candidates.length > 0) {
+        setRolloverCandidates(candidates);
+        setShowRollover(true);
+      }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [todayStr]);
 
   const handleAddTask = useCallback((content, dateStr) => {
@@ -142,7 +143,6 @@ function AppContent() {
             selectedDate={selectedDate}
             onDateSelect={handleDateSelect}
             onPlanFuture={() => setShowPlanFuture(true)}
-            refreshKey={refreshKey}
           />
 
           <div className="w-px my-6" style={{ background: 'var(--th-divider)' }} />

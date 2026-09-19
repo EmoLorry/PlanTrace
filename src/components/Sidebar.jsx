@@ -6,7 +6,6 @@ import {
     Download,
 } from 'lucide-react';
 import {
-    getDateRangeBJ,
     getTodayBJ,
     getDayName,
     isPast,
@@ -16,7 +15,7 @@ import {
 import { getDateStatus, getPendingCountForDate } from '../store/taskStore.js';
 import { exportBackup } from '../store/storage.js';
 
-export default function Sidebar({ selectedDate, onDateSelect, onPlanFuture, refreshKey }) {
+export default function Sidebar({ selectedDate, onDateSelect, onPlanFuture }) {
     const [offset, setOffset] = useState(0);
     const todayStr = getTodayBJ();
 

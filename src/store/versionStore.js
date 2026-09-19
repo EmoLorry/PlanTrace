@@ -24,6 +24,48 @@ const TIMEOUT_MS       = 5000;  // abort fetch if no response in 5s
 const LS_LAST_CHECK    = 'pt_version_last_check';
 const LS_DISMISSED     = 'pt_version_dismissed';
 
+function normalizeReleaseNotes(notes) {
+    return Array.isArray(notes)
+        ? notes.filter((note) => typeof note === 'string' && note.trim()).map((note) => note.trim())
+        : [];
+}
+
+function normalizeReleaseEntry(entry = {}) {
+    return {
+        version: String(entry.version || '').trim(),
+        releaseDate: String(entry.releaseDate || '').trim(),
+        releaseNotes: normalizeReleaseNotes(entry.releaseNotes || entry.notes),
+    };
+}
+
+export function normalizeManifest(payload) {
+    if (!payload || typeof payload !== 'object') return payload;
+
+    const current = normalizeReleaseEntry(payload);
+    const rawHistory = Array.isArray(payload.history)
+        ? payload.history
+        : (Array.isArray(payload.releases) ? payload.releases : []);
+
+    const seen = new Set();
+    const history = [current, ...rawHistory.map(normalizeReleaseEntry)]
+        .filter((entry) => entry.version)
+        .filter((entry) => {
+            if (seen.has(entry.version)) return false;
+            seen.add(entry.version);
+            return true;
+        });
+
+    const currentFromHistory = history.find((entry) => entry.version === current.version) || current;
+
+    return {
+        ...payload,
+        version: current.version,
+        releaseDate: current.releaseDate || currentFromHistory.releaseDate,
+        releaseNotes: current.releaseNotes.length ? current.releaseNotes : currentFromHistory.releaseNotes,
+        history,
+    };
+}
+
 // ---------------------------------------------------------------------------
 // Version comparison — simple 3-segment semver (MAJOR.MINOR.PATCH)
 // Returns true if `remote` is strictly newer than `local`.
@@ -83,11 +125,11 @@ export async function fetchRemoteVersion() {
             if (!res.ok) continue;
             const payload = await res.json();
             if (payload?.content && payload?.encoding === 'base64') {
-                return JSON.parse(atob(payload.content.replace(/\s/g, '')));
+                return normalizeManifest(JSON.parse(atob(payload.content.replace(/\s/g, ''))));
             }
             if (payload?.error) continue;
-            return payload;
-            // shape: { version, releaseDate, releaseNotes[], downloadUrl }
+            return normalizeManifest(payload);
+            // shape: { version, releaseDate, releaseNotes[], history[], downloadUrl }
         } catch {
             // Try the next mirror. Auto-check should stay silent on all failures.
         } finally {

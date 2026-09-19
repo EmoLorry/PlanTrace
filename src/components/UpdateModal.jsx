@@ -18,7 +18,10 @@ export default function UpdateModal({ manifest, onClose, onSkip, isManual = fals
 
     if (!manifest) return null;
 
-    const { version, releaseDate, releaseNotes = [] } = manifest;
+    const { version, releaseDate, releaseNotes = [], history = [] } = manifest;
+    const previousReleases = history
+        .filter((entry) => entry?.version && entry.version !== version)
+        .slice(0, 5);
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -215,6 +218,31 @@ export default function UpdateModal({ manifest, onClose, onSkip, isManual = fals
                             ))}
                         </ul>
                     </div>
+                )}
+
+                {previousReleases.length > 0 && (
+                    <details className="upd-history">
+                        <summary>历史更新记录</summary>
+                        <div className="upd-history-list">
+                            {previousReleases.map((entry) => (
+                                <div key={entry.version} className="upd-history-item">
+                                    <div className="upd-history-head">
+                                        <span className="upd-history-version">v{entry.version}</span>
+                                        {entry.releaseDate && (
+                                            <span className="upd-history-date">{fmtDate(entry.releaseDate)}</span>
+                                        )}
+                                    </div>
+                                    {entry.releaseNotes?.length > 0 && (
+                                        <ul className="upd-history-notes">
+                                            {entry.releaseNotes.slice(0, 4).map((note, i) => (
+                                                <li key={i}>{note}</li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </details>
                 )}
 
                 {/* Actions */}

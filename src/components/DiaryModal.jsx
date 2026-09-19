@@ -86,7 +86,7 @@ function NoteCard({ note, onChange, onDelete }) {
 // ---------------------------------------------------------------------------
 // Folder setup banner
 // ---------------------------------------------------------------------------
-function FolderBanner({ onPick, onRetry }) {
+function FolderBanner({ onPick }) {
     return (
         <div className="diary-folder-banner">
             <FolderOpen size={18} className="diary-folder-icon" />
