@@ -112,7 +112,7 @@ macOS 双击 `Install-PlanTrace-From-GitHub-macOS.command`
 > [!NOTE]
 > **Windows 10 / 11** 通常自带 winget，无需任何手动准备，直接双击即可。
 > 极少数情况 winget 不可用时，脚本会自动打开 Node.js 下载页面引导手动安装。
-
+> MacOS可能需要一定的权限设置，这是mac安全机制所必需的。
 ---
 
 ### 方式二：手动安装
