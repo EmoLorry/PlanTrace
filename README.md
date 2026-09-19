@@ -17,7 +17,7 @@
 
 | 主界面 | TraceStar 星图 |
 |--------|---------------|
-| ![主界面](static/1.png) | ![TraceStar](static/2.png) |
+| ![主界面](static/2.png) | ![TraceStar](static/1.png) |
 
 ![周日程视图](static/3.png)
 
