@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { X, Download, RefreshCw, ChevronRight, Sparkles, CheckCircle2, AlertCircle, Loader } from 'lucide-react';
 import { APP_VERSION, dismissVersion } from '../store/versionStore.js';
 
@@ -15,6 +15,13 @@ export default function UpdateModal({ manifest, onClose, onSkip, isManual = fals
     const [progress, setProgress] = useState([]);
     const [currentStep, setCurrentStep] = useState('');
     const scrollRef = useRef(null);
+    const slowTimerRef = useRef(null);
+
+    useEffect(() => {
+        return () => {
+            if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+        };
+    }, []);
 
     if (!manifest) return null;
 
@@ -43,11 +50,22 @@ export default function UpdateModal({ manifest, onClose, onSkip, isManual = fals
         });
     };
 
+    const clearSlowTimer = () => {
+        if (slowTimerRef.current) {
+            clearTimeout(slowTimerRef.current);
+            slowTimerRef.current = null;
+        }
+    };
+
     // ── Auto-update via SSE stream ────────────────────────────────────────────
 
     const handleAutoUpdate = async () => {
         setPhase('updating');
         setProgress([]);
+        clearSlowTimer();
+        slowTimerRef.current = setTimeout(() => {
+            appendLog('GitHub 下载较慢，正在等待响应或切换备用通道，请继续保持此窗口打开。');
+        }, 45000);
         setCurrentStep('准备中...');
 
         try {
@@ -78,10 +96,12 @@ export default function UpdateModal({ manifest, onClose, onSkip, isManual = fals
                         } else if (payload.type === 'progress') {
                             appendLog(payload.message);
                         } else if (payload.type === 'done') {
+                            clearSlowTimer();
                             appendLog(`\n✅ ${payload.message}`);
                             setCurrentStep(payload.message);
                             setPhase('done');
                         } else if (payload.type === 'error') {
+                            clearSlowTimer();
                             appendLog(`\n❌ ${payload.message}`);
                             setCurrentStep(payload.message);
                             setPhase('error');
@@ -90,8 +110,10 @@ export default function UpdateModal({ manifest, onClose, onSkip, isManual = fals
                 }
             }
             // If stream ended without explicit done/error, check phase
+            clearSlowTimer();
             setPhase((p) => p === 'updating' ? 'error' : p);
         } catch (err) {
+            clearSlowTimer();
             appendLog(`\n❌ ${err.message}`);
             setCurrentStep('连接更新服务失败，请确保 PlanTrace 服务正在运行');
             setPhase('error');

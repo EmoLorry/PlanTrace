@@ -8,6 +8,7 @@ import https from 'https'
 import http from 'http'
 import { execSync, spawn } from 'child_process'
 import { Buffer } from 'node:buffer'
+import process from 'node:process'
 
 // ---------------------------------------------------------------------------
 // Plugin: backup endpoint
@@ -59,38 +60,94 @@ function copyDir(src, dest) {
 }
 
 /** Follow HTTP/HTTPS redirects and download to destPath. */
-function downloadFile(url, destPath) {
+function downloadFile(url, destPath, { timeoutMs = 120000, idleTimeoutMs = 30000, onProgress } = {}) {
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(destPath);
+    let file = null;
+    let settled = false;
+    let downloaded = 0;
+    let lastReportedMb = 0;
+    let req = null;
+    let idleTimer = null;
+    const startedAt = Date.now();
+
+    const cleanup = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = null;
+    };
+
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (req) req.destroy();
+      if (file) file.destroy();
+      try { if (fs.existsSync(destPath)) fs.rmSync(destPath, { force: true }); } catch { /* ignore */ }
+      reject(err);
+    };
+
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+
+    const resetIdleTimer = (currentUrl) => {
+      cleanup();
+      idleTimer = setTimeout(() => {
+        fail(new Error(`No download data for ${Math.round(idleTimeoutMs / 1000)}s from ${currentUrl}`));
+      }, idleTimeoutMs);
+    };
+
     const fetch = (u) => {
       const mod = u.startsWith('https') ? https : http;
-      mod.get(u, { headers: { 'User-Agent': 'PlanTrace-Updater/1.0' } }, (res) => {
+      req = mod.get(u, { headers: { 'User-Agent': 'PlanTrace-Updater/1.0' } }, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          // Follow redirect
-          file.close();
-          fetch(res.headers.location); return;
+          cleanup();
+          fetch(new URL(res.headers.location, u).toString());
+          return;
         }
         if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode} while downloading ${u}`)); return;
+          fail(new Error(`HTTP ${res.statusCode} while downloading ${u}`));
+          return;
         }
+        file = fs.createWriteStream(destPath);
+        resetIdleTimer(u);
+        res.on('data', (chunk) => {
+          downloaded += chunk.length;
+          resetIdleTimer(u);
+          const downloadedMb = Math.floor(downloaded / 1024 / 1024);
+          if (downloadedMb >= lastReportedMb + 3) {
+            lastReportedMb = downloadedMb;
+            onProgress?.(`${downloadedMb} MB downloaded...`);
+          }
+        });
         res.pipe(file);
-        file.on('finish', () => file.close(resolve));
-        file.on('error', reject);
-      }).on('error', reject);
+        file.on('finish', () => file.close(done));
+        file.on('error', fail);
+      }).on('error', fail);
+      req.setTimeout(timeoutMs, () => {
+        fail(new Error(`Download timed out after ${Math.round((Date.now() - startedAt) / 1000)}s from ${u}`));
+      });
     };
     fetch(url);
   });
 }
 
-async function downloadFirstAvailable(urls, destPath) {
+async function downloadFirstAvailable(urls, destPath, send) {
   const errors = [];
-  for (const url of urls) {
+  for (let i = 0; i < urls.length; i += 1) {
+    const url = urls[i];
     try {
       if (fs.existsSync(destPath)) fs.rmSync(destPath, { force: true });
-      await downloadFile(url, destPath);
+      send?.({ type: 'progress', message: `下载通道 ${i + 1}/${urls.length}: ${url}` });
+      await downloadFile(url, destPath, {
+        onProgress: (message) => send?.({ type: 'progress', message }),
+      });
       return url;
     } catch (err) {
       errors.push(`${url}: ${err.message}`);
+      send?.({ type: 'progress', message: `该下载通道无响应，正在切换备用通道... (${err.message})` });
     }
   }
   throw new Error(`All download mirrors failed. ${errors.join(' | ')}`);
@@ -162,8 +219,18 @@ async function fetchRemoteVersionManifest() {
 /** Run npm install, streaming stdout/stderr lines back via send(). */
 function runNpmInstall(cwd, send) {
   return new Promise((resolve, reject) => {
-    const npm = spawn('npm.cmd', ['install', '--prefer-offline', '--loglevel', 'warn'], {
-      cwd, shell: false,
+    const npm = spawn(process.env.ComSpec || 'cmd.exe', [
+      '/d',
+      '/s',
+      '/c',
+      'npm.cmd',
+      'install',
+      '--prefer-offline',
+      '--loglevel',
+      'warn',
+    ], {
+      cwd,
+      windowsHide: true,
     });
     npm.stdout.on('data', (d) => {
       const line = d.toString().trim();
@@ -239,10 +306,10 @@ function updatePlugin() {
           // ── Step 1: Download ZIP ──
           send({ type: 'step', step: 1, message: '正在从 GitHub 下载最新版本...' });
           const ZIP_URLS = [
-            'https://github.com/EmoLorry/PlanTrace/archive/refs/heads/main.zip',
             'https://codeload.github.com/EmoLorry/PlanTrace/zip/refs/heads/main',
+            'https://github.com/EmoLorry/PlanTrace/archive/refs/heads/main.zip',
           ];
-          const usedZipUrl = await downloadFirstAvailable(ZIP_URLS, zipPath);
+          const usedZipUrl = await downloadFirstAvailable(ZIP_URLS, zipPath, send);
           send({ type: 'progress', message: `下载通道: ${usedZipUrl}` });
           send({ type: 'progress', message: '下载完成 ✓' });
 
