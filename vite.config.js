@@ -251,20 +251,70 @@ async function fetchRemoteVersionManifest() {
   throw new Error(`Could not fetch remote version manifest. ${errors.join(' | ')}`);
 }
 
+function quoteCmdPath(value) {
+  return `"${String(value).replace(/"/g, '""')}"`;
+}
+
+function validateWindowsNpm(candidate) {
+  if (!candidate || !fs.existsSync(candidate)) return false;
+
+  try {
+    execFileSync(process.env.ComSpec || 'cmd.exe', [
+      '/d',
+      '/c',
+      `${quoteCmdPath(candidate)} --version`,
+    ], {
+      cwd: os.tmpdir(),
+      timeout: 15000,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getWindowsNpmCommand() {
+  const candidates = [
+    process.execPath && path.join(path.dirname(process.execPath), 'npm.cmd'),
+    process.env.ProgramFiles && path.join(process.env.ProgramFiles, 'nodejs', 'npm.cmd'),
+    process.env['ProgramFiles(x86)'] && path.join(process.env['ProgramFiles(x86)'], 'nodejs', 'npm.cmd'),
+    process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Programs', 'nodejs', 'npm.cmd'),
+  ].filter(Boolean);
+
+  try {
+    const whereOut = execFileSync('where.exe', ['npm.cmd'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+    });
+    candidates.push(...whereOut.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+  } catch {
+    // PATH lookup is only a fallback; official Node paths above are preferred.
+  }
+
+  const validCandidate = [...new Set(candidates)].find(validateWindowsNpm);
+  if (!validCandidate) {
+    throw new Error('npm was found but was not usable. Reinstall Node.js LTS, then try again.');
+  }
+  return validCandidate;
+}
+
 /** Run npm install, streaming stdout/stderr lines back via send(). */
 function runNpmInstall(cwd, send) {
   return new Promise((resolve, reject) => {
-    const command = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : 'npm';
-    const commandArgs = process.platform === 'win32' ? ['/d', '/s', '/c', 'npm.cmd'] : [];
+    const isWindows = process.platform === 'win32';
+    const windowsNpm = isWindows ? getWindowsNpmCommand() : null;
+    const command = isWindows ? (process.env.ComSpec || 'cmd.exe') : 'npm';
+    const commandArgs = isWindows
+      ? ['/d', '/c', `${quoteCmdPath(windowsNpm)} install --prefer-offline --loglevel warn`]
+      : ['install', '--prefer-offline', '--loglevel', 'warn'];
     const npm = spawn(command, [
       ...commandArgs,
-      'install',
-      '--prefer-offline',
-      '--loglevel',
-      'warn',
     ], {
       cwd,
-      windowsHide: process.platform === 'win32',
+      windowsHide: isWindows,
     });
     npm.stdout.on('data', (d) => {
       const line = d.toString().trim();

@@ -1,12 +1,21 @@
 {
-  "version": "1.4.2",
+  "version": "1.4.3",
   "releaseDate": "2026-09-20",
   "releaseNotes": [
-    "修复 Windows 启动时找不到 npm.cmd 导致 PlanTrace 无法启动的问题",
-    "启动脚本现在会在 Node.js/npm 缺失或依赖不完整时自动调用本地安装修复",
-    "手动更新脚本增加 Node.js 检查，缺失时会优先尝试通过 winget 安装 Node.js LTS"
+    "修复 Windows 启动误用损坏 npm.cmd 导致 npm-cli.js / npm-prefix.js MODULE_NOT_FOUND 的问题",
+    "启动脚本改为直接用 node.exe 启动本地 Vite，不再依赖 npm run start",
+    "安装、手动更新和软件内更新都会优先使用并验证 Node 官方 npm 路径，避免被项目目录或坏 PATH 中的 npm.cmd 污染"
   ],
   "history": [
+    {
+      "version": "1.4.3",
+      "releaseDate": "2026-09-20",
+      "releaseNotes": [
+        "修复 Windows 启动误用损坏 npm.cmd 导致 npm-cli.js / npm-prefix.js MODULE_NOT_FOUND 的问题",
+        "启动脚本改为直接用 node.exe 启动本地 Vite，不再依赖 npm run start",
+        "安装、手动更新和软件内更新都会优先使用并验证 Node 官方 npm 路径，避免被项目目录或坏 PATH 中的 npm.cmd 污染"
+      ]
+    },
     {
       "version": "1.4.2",
       "releaseDate": "2026-09-20",

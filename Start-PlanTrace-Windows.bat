@@ -4,9 +4,10 @@ title PlanTrace
 cd /d "%~dp0"
 set "PROJECT_DIR=%cd%"
 
-call :FindNpm
+call :RefreshPath
+call :FindNode
 if errorlevel 1 (
-    echo Node.js/npm is missing or not in PATH. Repairing PlanTrace now...
+    echo Node.js is missing or not in PATH. Repairing PlanTrace now...
     call :RepairInstall
 )
 
@@ -15,11 +16,20 @@ if not exist "%~dp0node_modules\vite\bin\vite.js" (
     call :RepairInstall
 )
 
-call :FindNpm
+call :RefreshPath
+call :FindNode
 if errorlevel 1 (
     echo.
-    echo npm.cmd was still not found after repair.
+    echo node.exe was still not found after repair.
     echo Please install Node.js LTS from https://nodejs.org/en/download and run this file again.
+    pause
+    exit /b 1
+)
+
+if not exist "%~dp0node_modules\vite\bin\vite.js" (
+    echo.
+    echo Vite was still not found after repair.
+    echo Please run Install-PlanTrace-From-GitHub-Windows.bat again.
     pause
     exit /b 1
 )
@@ -30,7 +40,7 @@ echo Browser URL: http://localhost:5173
 echo Keep this window open while using PlanTrace.
 echo.
 
-call "%NPM_CMD%" run start
+call "%NODE_CMD%" "%~dp0node_modules\vite\bin\vite.js" --host localhost --port 5173
 if errorlevel 1 (
     echo.
     echo PlanTrace stopped or failed to start.
@@ -40,19 +50,23 @@ if errorlevel 1 (
 
 exit /b 0
 
-:FindNpm
-set "NPM_CMD="
-where npm.cmd >nul 2>nul
+:FindNode
+set "NODE_CMD="
+if exist "%ProgramFiles%\nodejs\node.exe" (
+    set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+    exit /b 0
+)
+if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
+    set "NODE_CMD=%ProgramFiles(x86)%\nodejs\node.exe"
+    exit /b 0
+)
+if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" (
+    set "NODE_CMD=%LOCALAPPDATA%\Programs\nodejs\node.exe"
+    exit /b 0
+)
+where node.exe >nul 2>nul
 if not errorlevel 1 (
-    set "NPM_CMD=npm.cmd"
-    exit /b 0
-)
-if exist "%ProgramFiles%\nodejs\npm.cmd" (
-    set "NPM_CMD=%ProgramFiles%\nodejs\npm.cmd"
-    exit /b 0
-)
-if exist "%ProgramFiles(x86)%\nodejs\npm.cmd" (
-    set "NPM_CMD=%ProgramFiles(x86)%\nodejs\npm.cmd"
+    set "NODE_CMD=node.exe"
     exit /b 0
 )
 exit /b 1

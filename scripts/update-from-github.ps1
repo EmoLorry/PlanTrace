@@ -209,14 +209,52 @@ function Ensure-Node {
     Write-Host "Node.js $version found."
 }
 
+function Test-NpmCommand {
+    param([string]$Command)
+
+    if ([string]::IsNullOrWhiteSpace($Command)) { return $false }
+
+    try {
+        $output = & $Command --version 2>$null
+        if ($LASTEXITCODE -ne 0) { return $false }
+        return -not [string]::IsNullOrWhiteSpace(($output | Select-Object -First 1))
+    }
+    catch {
+        return $false
+    }
+}
+
 function Get-NpmCommand {
     Refresh-Path
 
-    $npmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
-    if ($npmCmd) { return $npmCmd.Source }
-    $npm = Get-Command npm -ErrorAction SilentlyContinue
-    if ($npm) { return $npm.Source }
-    throw 'npm was not found. Install Node.js LTS, then run Update-PlanTrace.bat again.'
+    $candidates = @()
+
+    foreach ($nodeCommand in @(Get-Command node.exe -All -ErrorAction SilentlyContinue)) {
+        if ($nodeCommand.Source) {
+            $candidates += Join-Path (Split-Path -Parent $nodeCommand.Source) 'npm.cmd'
+        }
+    }
+
+    $programFiles = [Environment]::GetFolderPath('ProgramFiles')
+    $programFilesX86 = [Environment]::GetFolderPath('ProgramFilesX86')
+    if ($programFiles) { $candidates += Join-Path $programFiles 'nodejs\npm.cmd' }
+    if ($programFilesX86) { $candidates += Join-Path $programFilesX86 'nodejs\npm.cmd' }
+    if ($env:LOCALAPPDATA) { $candidates += Join-Path $env:LOCALAPPDATA 'Programs\nodejs\npm.cmd' }
+
+    foreach ($npmCmd in @(Get-Command npm.cmd -All -ErrorAction SilentlyContinue)) {
+        if ($npmCmd.Source) { $candidates += $npmCmd.Source }
+    }
+    foreach ($npm in @(Get-Command npm -All -ErrorAction SilentlyContinue)) {
+        if ($npm.Source) { $candidates += $npm.Source }
+    }
+
+    foreach ($candidate in @($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+        if (Test-NpmCommand -Command $candidate) {
+            return $candidate
+        }
+    }
+
+    throw 'npm was found but was not usable. Reinstall Node.js LTS, then run Update-PlanTrace-Windows.bat again.'
 }
 
 $root = (Resolve-Path $ProjectDir).Path
