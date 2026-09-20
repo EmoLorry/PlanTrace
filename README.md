@@ -4,7 +4,7 @@
 >
 > A beautiful local-first task manager with atomic timer, diary, and weekly schedule visualization.
 
-![version](https://img.shields.io/badge/版本-v1.7.3-blueviolet)
+![version](https://img.shields.io/badge/版本-v1.7.4-blueviolet)
 ![react](https://img.shields.io/badge/React-19-61dafb)
 ![vite](https://img.shields.io/badge/Vite-7-646cff)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
@@ -128,6 +128,7 @@ macOS 双击 `Install-PlanTrace-From-GitHub-macOS.command`
 > ```
 >
 > 如果终端提示没有文件夹访问权限，请到 `系统设置 → 隐私与安全性 → 文件与文件夹` 或 `完全磁盘访问权限`，给 **Terminal / 终端** 打开权限后重试。PlanTrace 默认安装到 `~/Applications/PlanTrace`，通常不需要 `sudo`。
+> 如果 macOS 打开后页面反复刷新闪动，请更新到 `v1.7.4` 或以上；该版本已忽略 `data/`、`backups/` 的本地写入监听，避免保存数据触发页面刷新。
 
 ---
 

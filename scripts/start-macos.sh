@@ -25,6 +25,5 @@ printf '\nPlanTrace is starting.\n'
 printf 'Browser URL: http://localhost:5173\n'
 printf 'Keep this window open while using PlanTrace.\n\n'
 
-(sleep 2; open "http://localhost:5173" >/dev/null 2>&1 || true) &
 cd "$PROJECT_DIR"
 exec npm run start

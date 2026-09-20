@@ -983,6 +983,13 @@ export default defineConfig({
     host: 'localhost',   // always bind to localhost, never 127.0.0.1
     port: 5173,
     open: 'http://localhost:5173',
+    watch: {
+      ignored: [
+        '**/data/**',
+        '**/backups/**',
+        '**/dist/**',
+      ],
+    },
   },
   plugins: [react(), tailwindcss(), dataPlugin(), backupPlugin(), updatePlugin()],
 })

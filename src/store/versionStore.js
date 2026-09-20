@@ -21,6 +21,7 @@ const REMOTE_URLS = [
 ];
 
 const TIMEOUT_MS       = 5000;  // abort fetch if no response in 5s
+const AUTO_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 const LS_LAST_CHECK    = 'pt_version_last_check';
 const LS_DISMISSED     = 'pt_version_dismissed';
@@ -83,11 +84,12 @@ export function isNewer(remote, local) {
 }
 
 // ---------------------------------------------------------------------------
-// Auto-check gate. Currently always enabled because the manifest is tiny and
-// update prompts should appear as soon as a newer remote version is published.
+// Auto-check gate. Manual checks always bypass this, while background checks
+// run at most once every 24 hours so startup does not keep writing local data.
 // ---------------------------------------------------------------------------
 export function shouldAutoCheck() {
-    return true;
+    const lastChecked = Number(getJSON(LS_LAST_CHECK)) || 0;
+    return !lastChecked || Date.now() - lastChecked >= AUTO_CHECK_INTERVAL_MS;
 }
 
 export function markChecked() {
