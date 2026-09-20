@@ -160,6 +160,20 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
         attachIntervalRef.current = attachInterval;
     }, [attachInterval]);
 
+    const reconcileMidnightBoundary = useCallback(() => {
+        const persistedStart = getActiveTimers()[task.id];
+        const startTime = persistedStart ?? startTimeRef.current;
+        if (!startTime) return false;
+
+        const boundary = getNextMidnightMsBJ(startTime);
+        if (Date.now() < boundary) return false;
+
+        flushTimer(task.id, boundary, { keepRunning: true });
+        setElapsedSeconds(Math.max(0, Math.floor((Date.now() - boundary) / 1000)));
+        attachIntervalRef.current?.(boundary);
+        return true;
+    }, [flushTimer, task.id]);
+
     // Start timer
     const startTimer = useCallback(() => {
         if (isEndOfDayBJ()) return; // Don't allow starting at 23:59:59+
@@ -214,14 +228,29 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
     // may have been suspended. Re-sync elapsed display from the real clock.
     // ---------------------------------------------------------------------------
     useEffect(() => {
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'visible' && startTimeRef.current) {
-                setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+        const syncTimerAfterWake = () => {
+            const persistedStart = getActiveTimers()[task.id];
+            const startTime = persistedStart ?? startTimeRef.current;
+            if (!startTime) return;
+
+            if (!reconcileMidnightBoundary()) {
+                setElapsedSeconds(Math.floor((Date.now() - startTime) / 1000));
             }
         };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') syncTimerAfterWake();
+        };
+
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-    }, []);
+        window.addEventListener('focus', syncTimerAfterWake);
+        window.addEventListener('pageshow', syncTimerAfterWake);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', syncTimerAfterWake);
+            window.removeEventListener('pageshow', syncTimerAfterWake);
+        };
+    }, [reconcileMidnightBoundary, task.id]);
 
     // NOTE: beforeunload is intentionally NOT registered here.
     // It lives at the App level (App.jsx) so it remains active even when
