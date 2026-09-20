@@ -255,6 +255,11 @@ done
 plantrace_chmod_project "$PROJECT_DIR"
 plantrace_install_dependencies "$PROJECT_DIR"
 
+if [[ -f "$PROJECT_DIR/scripts/refresh-macos-launcher.sh" ]]; then
+  plantrace_step "Refreshing desktop launcher"
+  bash "$PROJECT_DIR/scripts/refresh-macos-launcher.sh" "$PROJECT_DIR"
+fi
+
 printf '\nPlanTrace updated to v%s.\n' "$REMOTE_VERSION"
 printf 'User data in browser localStorage and backups/ was not changed.\n'
 

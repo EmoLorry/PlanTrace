@@ -4,7 +4,7 @@
 >
 > A beautiful local-first task manager with atomic timer, diary, and weekly schedule visualization.
 
-![version](https://img.shields.io/badge/版本-v1.4.3-blueviolet)
+![version](https://img.shields.io/badge/版本-v1.4.5-blueviolet)
 ![react](https://img.shields.io/badge/React-19-61dafb)
 ![vite](https://img.shields.io/badge/Vite-7-646cff)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
@@ -140,7 +140,7 @@ npm run dev
 
 Windows 双击项目根目录的 **`start.bat`** 或桌面 **PlanTrace 图标**。
 
-macOS 双击项目根目录的 **`start-macOS.command`** 或桌面 **PlanTrace.command**。
+macOS 双击桌面 **PlanTrace.app**，也可以使用备用的 **PlanTrace.command** 或项目根目录的 **start-macOS.command**。
 
 ---
 
@@ -209,7 +209,10 @@ PlanTrace/
 ├── index.html
 ├── vite.config.js              # Vite + 备份/更新插件
 ├── public/
-│   └── version.json            # 远端版本清单（推送后用于检测更新）
+│   ├── version.json            # 远端版本清单（推送后用于检测更新）
+│   ├── plantrace.ico           # Windows 桌面快捷方式图标
+│   ├── plantrace.icns          # macOS 桌面 App 图标
+│   └── plantrace-icon.svg      # 浏览器标签页图标
 ├── backups/                    # 导出的 JSON 备份（自动创建）
 ├── Install-PlanTrace-From-GitHub-Windows.bat # Windows 一键安装
 ├── Install-PlanTrace-From-GitHub-macOS.command # macOS 一键安装
@@ -304,3 +307,4 @@ PlanTrace/
 > 商业授权请通过 GitHub 联系作者。
 
 © 2026 [EmoLorry](https://github.com/EmoLorry) · [查看完整许可协议](LICENSE)
+

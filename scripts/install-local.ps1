@@ -178,21 +178,31 @@ function New-PlanTraceShortcut {
         $target = Join-Path $Root 'start.bat'
     }
     $shortcutPath = Join-Path $desktop 'PlanTrace.lnk'
+    $iconPath = Join-Path $Root 'public\plantrace.ico'
 
     try {
+        if (Test-Path -LiteralPath $shortcutPath) {
+            Remove-Item -LiteralPath $shortcutPath -Force -ErrorAction SilentlyContinue
+        }
+
         $shell = New-Object -ComObject WScript.Shell
         $shortcut = $shell.CreateShortcut($shortcutPath)
         $shortcut.TargetPath = $target
         $shortcut.WorkingDirectory = $Root
         $shortcut.Description = 'Start PlanTrace'
 
-        $nodeIcon = Join-Path $env:ProgramFiles 'nodejs\node.exe'
-        if (Test-Path -LiteralPath $nodeIcon) {
-            $shortcut.IconLocation = $nodeIcon
+        if (Test-Path -LiteralPath $iconPath) {
+            $shortcut.IconLocation = "$iconPath,0"
+        }
+        else {
+            $nodeIcon = Join-Path $env:ProgramFiles 'nodejs\node.exe'
+            if (Test-Path -LiteralPath $nodeIcon) {
+                $shortcut.IconLocation = $nodeIcon
+            }
         }
 
         $shortcut.Save()
-        Write-Host "Shortcut created: $shortcutPath"
+        Write-Host "Shortcut refreshed: $shortcutPath"
     }
     catch {
         Write-Host "Shortcut creation skipped: $($_.Exception.Message)" -ForegroundColor Yellow

@@ -1,12 +1,30 @@
 {
-  "version": "1.4.3",
+  "version": "1.4.5",
   "releaseDate": "2026-09-20",
   "releaseNotes": [
-    "修复 Windows 启动误用损坏 npm.cmd 导致 npm-cli.js / npm-prefix.js MODULE_NOT_FOUND 的问题",
-    "启动脚本改为直接用 node.exe 启动本地 Vite，不再依赖 npm run start",
-    "安装、手动更新和软件内更新都会优先使用并验证 Node 官方 npm 路径，避免被项目目录或坏 PATH 中的 npm.cmd 污染"
+    "新增 macOS 桌面 PlanTrace.app 启动器，使用专属 plantrace.icns 图标",
+    "macOS 安装、手动更新和 postinstall 会自动刷新桌面 PlanTrace.app，同时保留 PlanTrace.command 备用入口",
+    "图标生成器同步产出 Windows .ico、macOS .icns 和浏览器 SVG 图标"
   ],
   "history": [
+    {
+      "version": "1.4.5",
+      "releaseDate": "2026-09-20",
+      "releaseNotes": [
+        "新增 macOS 桌面 PlanTrace.app 启动器，使用专属 plantrace.icns 图标",
+        "macOS 安装、手动更新和 postinstall 会自动刷新桌面 PlanTrace.app，同时保留 PlanTrace.command 备用入口",
+        "图标生成器同步产出 Windows .ico、macOS .icns 和浏览器 SVG 图标"
+      ]
+    },
+    {
+      "version": "1.4.4",
+      "releaseDate": "2026-09-20",
+      "releaseNotes": [
+        "新增 PlanTrace 专属桌面图标和浏览器标签页图标",
+        "Windows 安装、修复和手动更新后会自动覆盖刷新桌面 PlanTrace 快捷方式",
+        "新增 postinstall 快捷方式刷新逻辑，从旧版更新到本版时也能立即换成新图标"
+      ]
+    },
     {
       "version": "1.4.3",
       "releaseDate": "2026-09-20",

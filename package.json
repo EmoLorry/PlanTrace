@@ -1,13 +1,14 @@
 {
   "name": "plantrace",
   "private": true,
-  "version": "1.4.3",
+  "version": "1.4.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "start": "vite --host localhost --port 5173",
     "build": "vite build",
     "lint": "eslint .",
+    "postinstall": "node scripts/refresh-desktop-launcher.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

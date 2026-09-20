@@ -257,6 +257,46 @@ function Get-NpmCommand {
     throw 'npm was found but was not usable. Reinstall Node.js LTS, then run Update-PlanTrace-Windows.bat again.'
 }
 
+function New-PlanTraceShortcut {
+    param([string]$Root)
+
+    Write-Step 'Refreshing desktop shortcut'
+    $desktop = [Environment]::GetFolderPath('Desktop')
+    if (-not $desktop) {
+        Write-Host 'Desktop path was not found; skipping shortcut.' -ForegroundColor Yellow
+        return
+    }
+
+    $target = Join-Path $Root 'Start-PlanTrace-Windows.bat'
+    if (-not (Test-Path -LiteralPath $target)) {
+        $target = Join-Path $Root 'start.bat'
+    }
+    $shortcutPath = Join-Path $desktop 'PlanTrace.lnk'
+    $iconPath = Join-Path $Root 'public\plantrace.ico'
+
+    try {
+        if (Test-Path -LiteralPath $shortcutPath) {
+            Remove-Item -LiteralPath $shortcutPath -Force -ErrorAction SilentlyContinue
+        }
+
+        $shell = New-Object -ComObject WScript.Shell
+        $shortcut = $shell.CreateShortcut($shortcutPath)
+        $shortcut.TargetPath = $target
+        $shortcut.WorkingDirectory = $Root
+        $shortcut.Description = 'Start PlanTrace'
+
+        if (Test-Path -LiteralPath $iconPath) {
+            $shortcut.IconLocation = "$iconPath,0"
+        }
+
+        $shortcut.Save()
+        Write-Host "Shortcut refreshed: $shortcutPath"
+    }
+    catch {
+        Write-Host "Shortcut refresh skipped: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
 $root = (Resolve-Path $ProjectDir).Path
 if (-not (Test-Path -LiteralPath (Join-Path $root 'package.json'))) {
     throw "package.json was not found in $root"
@@ -378,6 +418,7 @@ try {
     Write-Host ''
     Write-Host "PlanTrace updated to v$remoteVersion." -ForegroundColor Green
     Write-Host 'User data in browser localStorage and backups/ was not changed.'
+    New-PlanTraceShortcut -Root $root
 
     if (-not $NoLaunch) {
         $launch = Read-Host 'Start PlanTrace now? (Y/n)'

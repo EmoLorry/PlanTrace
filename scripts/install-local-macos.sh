@@ -51,15 +51,7 @@ plantrace_chmod_project "$PROJECT_DIR"
 
 if [[ "$CREATE_SHORTCUT" == "1" ]]; then
   plantrace_step "Creating desktop launcher"
-  shortcut="$HOME/Desktop/PlanTrace.command"
-  quoted_project_dir="$(printf '%q' "$PROJECT_DIR")"
-  cat > "$shortcut" <<EOF
-#!/usr/bin/env bash
-cd $quoted_project_dir
-exec ./start-macOS.command
-EOF
-  chmod +x "$shortcut"
-  printf 'Launcher created: %s\n' "$shortcut"
+  bash "$SCRIPT_DIR/refresh-macos-launcher.sh" "$PROJECT_DIR"
 fi
 
 if [[ "$LAUNCH" == "1" ]]; then
