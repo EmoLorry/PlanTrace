@@ -11,6 +11,270 @@ import { Buffer } from 'node:buffer'
 import process from 'node:process'
 
 // ---------------------------------------------------------------------------
+// Plugin: local data folder endpoint
+// ---------------------------------------------------------------------------
+
+const DATA_SCHEMA_VERSION = 1;
+
+function sendJson(res, payload, statusCode = 200) {
+  res.statusCode = statusCode;
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify(payload));
+}
+
+function readRequestJson(req, limitBytes = 20 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (chunk) => {
+      body += chunk;
+      if (Buffer.byteLength(body) > limitBytes) {
+        reject(new Error('Request body is too large.'));
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      try {
+        resolve(body ? JSON.parse(body) : {});
+      } catch {
+        reject(new Error('Invalid JSON body.'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+function ensureDataDirs() {
+  const dataDir = path.resolve('data');
+  const diaryDir = path.join(dataDir, 'diary');
+  fs.mkdirSync(diaryDir, { recursive: true });
+  return {
+    dataDir,
+    diaryDir,
+    dataFile: path.join(dataDir, 'plantrace-data.json'),
+  };
+}
+
+function quarantineFile(filePath) {
+  const corruptPath = `${filePath}.corrupt-${Date.now()}`;
+  try {
+    fs.renameSync(filePath, corruptPath);
+    return corruptPath;
+  } catch {
+    try {
+      fs.copyFileSync(filePath, corruptPath);
+      fs.unlinkSync(filePath);
+      return corruptPath;
+    } catch {
+      return null;
+    }
+  }
+}
+
+function readPlanTraceData() {
+  const { dataFile } = ensureDataDirs();
+  if (!fs.existsSync(dataFile)) {
+    return {
+      schemaVersion: DATA_SCHEMA_VERSION,
+      updatedAt: null,
+      keys: {},
+    };
+  }
+
+  try {
+    const data = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+    return {
+      schemaVersion: data.schemaVersion || DATA_SCHEMA_VERSION,
+      updatedAt: data.updatedAt || null,
+      keys: data.keys && typeof data.keys === 'object' ? data.keys : {},
+    };
+  } catch {
+    const corruptPath = quarantineFile(dataFile);
+    return {
+      schemaVersion: DATA_SCHEMA_VERSION,
+      updatedAt: null,
+      keys: {},
+      recoveredFromCorruptFile: corruptPath,
+    };
+  }
+}
+
+function writePlanTraceData(data) {
+  const { dataFile } = ensureDataDirs();
+  const next = {
+    schemaVersion: DATA_SCHEMA_VERSION,
+    ...data,
+    keys: data.keys && typeof data.keys === 'object' ? data.keys : {},
+    updatedAt: new Date().toISOString(),
+  };
+  const tempFile = `${dataFile}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify(next, null, 2), 'utf8');
+  fs.renameSync(tempFile, dataFile);
+  return next;
+}
+
+function parseDataRoute(req) {
+  const pathname = new URL(req.url, 'http://localhost').pathname;
+  return pathname.replace(/^\/api\/data/, '') || '/';
+}
+
+function validateDateString(dateStr) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ''))) {
+    throw new Error('Invalid date.');
+  }
+  return String(dateStr);
+}
+
+function diaryPathForDate(dateStr) {
+  const { diaryDir } = ensureDataDirs();
+  return path.join(diaryDir, `diary-${validateDateString(dateStr)}.json`);
+}
+
+function readDiaryFile(dateStr) {
+  const filePath = diaryPathForDate(dateStr);
+  if (!fs.existsSync(filePath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch {
+    quarantineFile(filePath);
+    return null;
+  }
+}
+
+function writeDiaryFile(dateStr, data) {
+  const filePath = diaryPathForDate(dateStr);
+  const next = {
+    mainText: typeof data?.mainText === 'string' ? data.mainText : '',
+    notes: Array.isArray(data?.notes) ? data.notes : [],
+    lastModified: Number(data?.lastModified) || Date.now(),
+  };
+  const tempFile = `${filePath}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify(next, null, 2), 'utf8');
+  fs.renameSync(tempFile, filePath);
+  return next;
+}
+
+function dataPlugin() {
+  return {
+    name: 'plantrace-data',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const pathname = new URL(req.url, 'http://localhost').pathname;
+        if (!pathname.startsWith('/api/data')) {
+          next();
+          return;
+        }
+
+        try {
+          const route = parseDataRoute(req);
+          const { dataDir, diaryDir, dataFile } = ensureDataDirs();
+
+          if (route === '/snapshot' && req.method === 'GET') {
+            const data = readPlanTraceData();
+            sendJson(res, {
+              success: true,
+              schemaVersion: DATA_SCHEMA_VERSION,
+              keys: data.keys,
+              dataPath: dataFile,
+              diaryPath: diaryDir,
+              updatedAt: data.updatedAt,
+            });
+            return;
+          }
+
+          if (route === '/key' && req.method === 'POST') {
+            const body = await readRequestJson(req);
+            const key = String(body.key || '');
+            if (!key) throw new Error('Missing key.');
+            const data = readPlanTraceData();
+            if (body.remove) {
+              delete data.keys[key];
+            } else {
+              data.keys[key] = body.value;
+            }
+            const nextData = writePlanTraceData(data);
+            sendJson(res, { success: true, key, dataPath: dataFile, updatedAt: nextData.updatedAt });
+            return;
+          }
+
+          if (route === '/migrate' && req.method === 'POST') {
+            const body = await readRequestJson(req);
+            const incoming = body.keys && typeof body.keys === 'object' ? body.keys : {};
+            const data = readPlanTraceData();
+            let imported = 0;
+            for (const [key, value] of Object.entries(incoming)) {
+              if (data.keys[key] === undefined || data.keys[key] === null) {
+                data.keys[key] = value;
+                imported += 1;
+              }
+            }
+            const nextData = imported > 0 ? writePlanTraceData(data) : data;
+            sendJson(res, {
+              success: true,
+              imported,
+              keys: nextData.keys,
+              dataPath: dataFile,
+              updatedAt: nextData.updatedAt,
+            });
+            return;
+          }
+
+          if (route === '/info' && req.method === 'GET') {
+            sendJson(res, { success: true, dataPath: dataDir, diaryPath: diaryDir });
+            return;
+          }
+
+          const diaryMatch = route.match(/^\/diary\/(\d{4}-\d{2}-\d{2})$/);
+          if (diaryMatch && req.method === 'GET') {
+            sendJson(res, {
+              success: true,
+              diary: readDiaryFile(diaryMatch[1]),
+              diaryPath: diaryPathForDate(diaryMatch[1]),
+            });
+            return;
+          }
+          if (diaryMatch && req.method === 'POST') {
+            const body = await readRequestJson(req);
+            const diary = writeDiaryFile(diaryMatch[1], body.diary || body);
+            sendJson(res, { success: true, diary, diaryPath: diaryPathForDate(diaryMatch[1]) });
+            return;
+          }
+
+          if (route === '/diary-import' && req.method === 'POST') {
+            const body = await readRequestJson(req);
+            const entries = Array.isArray(body.entries) ? body.entries : [];
+            let imported = 0;
+            let skipped = 0;
+            for (const entry of entries) {
+              try {
+                const date = validateDateString(entry.date);
+                const incoming = entry.diary || entry.data;
+                const existing = readDiaryFile(date);
+                const incomingModified = Number(incoming?.lastModified) || 0;
+                const existingModified = Number(existing?.lastModified) || 0;
+                if (!existing || incomingModified >= existingModified) {
+                  writeDiaryFile(date, incoming);
+                  imported += 1;
+                } else {
+                  skipped += 1;
+                }
+              } catch {
+                skipped += 1;
+              }
+            }
+            sendJson(res, { success: true, imported, skipped, diaryPath: diaryDir });
+            return;
+          }
+
+          sendJson(res, { success: false, error: 'Not found.' }, 404);
+        } catch (err) {
+          sendJson(res, { success: false, error: err.message }, 500);
+        }
+      });
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Plugin: backup endpoint
 // ---------------------------------------------------------------------------
 function backupPlugin() {
@@ -499,5 +763,5 @@ export default defineConfig({
     port: 5173,
     open: 'http://localhost:5173',
   },
-  plugins: [react(), tailwindcss(), backupPlugin(), updatePlugin()],
+  plugins: [react(), tailwindcss(), dataPlugin(), backupPlugin(), updatePlugin()],
 })

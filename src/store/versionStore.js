@@ -7,6 +7,7 @@
  */
 
 import { APP_VERSION } from '../version.js';
+import { getJSON, removeKey, setJSON } from './storage.js';
 
 // ---------------------------------------------------------------------------
 // Remote URL
@@ -90,22 +91,22 @@ export function shouldAutoCheck() {
 }
 
 export function markChecked() {
-    localStorage.setItem(LS_LAST_CHECK, String(Date.now()));
+    setJSON(LS_LAST_CHECK, Date.now());
 }
 
 // ---------------------------------------------------------------------------
 // Dismissal — user can permanently skip a specific remote version
 // ---------------------------------------------------------------------------
 export function isDismissed(remoteVersion) {
-    return localStorage.getItem(LS_DISMISSED) === remoteVersion;
+    return getJSON(LS_DISMISSED) === remoteVersion;
 }
 
 export function dismissVersion(remoteVersion) {
-    localStorage.setItem(LS_DISMISSED, remoteVersion);
+    setJSON(LS_DISMISSED, remoteVersion);
 }
 
 export function clearDismissal() {
-    localStorage.removeItem(LS_DISMISSED);
+    removeKey(LS_DISMISSED);
 }
 
 // ---------------------------------------------------------------------------

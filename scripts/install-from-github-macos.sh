@@ -96,18 +96,22 @@ SOURCE_DIR="$(find "$EXTRACT_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 [[ -d "$SOURCE_DIR/src" ]] || fail "the downloaded archive does not look like a PlanTrace project."
 
 step "Installing to $INSTALL_DIR"
-if [[ -d "$INSTALL_DIR/backups" ]]; then
-  mkdir -p "$PRESERVE_DIR"
-  cp -R "$INSTALL_DIR/backups" "$PRESERVE_DIR/backups"
-fi
+for name in backups data; do
+  if [[ -d "$INSTALL_DIR/$name" ]]; then
+    mkdir -p "$PRESERVE_DIR"
+    cp -R "$INSTALL_DIR/$name" "$PRESERVE_DIR/$name"
+  fi
+done
 
 rm -rf "$INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
 cp -R "$SOURCE_DIR"/. "$INSTALL_DIR"/
 
-if [[ -d "$PRESERVE_DIR/backups" ]]; then
-  cp -R "$PRESERVE_DIR/backups" "$INSTALL_DIR/backups"
-fi
+for name in backups data; do
+  if [[ -d "$PRESERVE_DIR/$name" ]]; then
+    cp -R "$PRESERVE_DIR/$name" "$INSTALL_DIR/$name"
+  fi
+done
 
 find "$INSTALL_DIR" -maxdepth 1 -name "*.command" -exec chmod +x {} + 2>/dev/null || true
 find "$INSTALL_DIR/scripts" -maxdepth 1 -name "*.sh" -exec chmod +x {} + 2>/dev/null || true

@@ -7,9 +7,9 @@ Vite 是 PlanTrace 的本地开发服务器和构建工具：
 - 启动本地网页应用：`npm run start` 会运行 Vite，并打开 `http://localhost:5173`
 - 支持 React 热更新：改代码后页面可以快速刷新
 - 打包发布资源：`npm run build` 会生成 `dist/`
-- 承载本地接口：本项目在 `vite.config.js` 里额外加了 `/api/backup`、`/api/update/check`、`/api/update/apply`，用于备份和一键更新
+- 承载本地接口：本项目在 `vite.config.js` 里额外加了 `/api/data`、`/api/backup`、`/api/update/check`、`/api/update/apply`，用于本地数据、备份和一键更新
 
-Vite 不是数据库。用户任务、主题、日记索引等仍保存在浏览器本地数据、用户选择的日记文件夹或 `backups/` 里。
+Vite 不是外部数据库。PlanTrace 通过 Vite 本地接口把用户任务、主题、日记等统一写入项目本地 `data/` 目录；旧浏览器 localStorage 会在首次启动时自动迁移。
 
 ## GitHub 应提交的内容
 
@@ -46,6 +46,7 @@ Vite 不是数据库。用户任务、主题、日记索引等仍保存在浏览
 - `node_modules/`，客户电脑执行安装脚本后会自动安装
 - `dist/`，这是构建产物，不是安装必需源码
 - `backups/`，这是本地个人数据备份
+- `data/`，这是本地真实用户数据
 
 可选提交：
 
@@ -120,8 +121,8 @@ macOS：
 
 所有更新方式都会保护：
 
-- 浏览器 localStorage 用户数据
-- 日记文件夹数据
+- `data/` 用户数据目录
+- 浏览器 localStorage 旧数据迁移来源
 - `backups/` 备份目录
 
 ## 跨平台注意事项

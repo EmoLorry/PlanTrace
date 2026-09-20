@@ -328,6 +328,7 @@ try {
     if (-not (Test-NewerVersion -Remote $remoteVersion -Local $localVersion)) {
         Write-Host ''
         Write-Host 'PlanTrace is already up to date.' -ForegroundColor Green
+        New-PlanTraceShortcut -Root $root
         return
     }
 
@@ -417,7 +418,7 @@ try {
 
     Write-Host ''
     Write-Host "PlanTrace updated to v$remoteVersion." -ForegroundColor Green
-    Write-Host 'User data in browser localStorage and backups/ was not changed.'
+    Write-Host 'User data in data/, backups/, and legacy browser localStorage was not changed.'
     New-PlanTraceShortcut -Root $root
 
     if (-not $NoLaunch) {

@@ -1,9 +1,9 @@
 /**
  * diaryStore.js
- * Local diary storage using File System Access API.
- * Directory handle is persisted in IndexedDB so the user only picks once.
+ * Local diary storage using PlanTrace's data/diary folder via the local Vite server.
+ * Legacy File System Access handles are kept only for one-time migration/import.
  *
- * File layout (one per day): diary-YYYY-MM-DD.json
+ * File layout (one per day): data/diary/diary-YYYY-MM-DD.json
  * Schema: { mainText, notes: [{id, text, color, createdAt}], lastModified }
  */
 
@@ -108,6 +108,7 @@ export async function verifyPermission(handle) {
  */
 export async function pickDirectory() {
     try {
+        if (!window.showDirectoryPicker) return null;
         const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
         await saveDirHandle(handle);
         return handle;
@@ -118,32 +119,113 @@ export async function pickDirectory() {
 }
 
 // ---------------------------------------------------------------------------
-// File I/O
+// Server-backed file I/O
 // ---------------------------------------------------------------------------
 
+async function requestJSON(url, options = {}) {
+    const res = await fetch(url, {
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...(options.headers || {}),
+        },
+    });
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.success === false) {
+        throw new Error(payload.error || `Request failed: ${url}`);
+    }
+    return payload;
+}
+
+export async function ensureDiaryStorage() {
+    return requestJSON('/api/data/info');
+}
+
 /**
- * Read diary for dateStr ("YYYY-MM-DD") from dirHandle.
+ * Read diary for dateStr ("YYYY-MM-DD") from PlanTrace/data/diary.
  * Returns null if the file doesn't exist yet.
  */
-export async function readDiary(dirHandle, dateStr) {
+export async function readDiary(_dirHandle, dateStr) {
     try {
-        const fh   = await dirHandle.getFileHandle(`diary-${dateStr}.json`);
-        const file = await fh.getFile();
-        const text = await file.text();
-        return JSON.parse(text);
+        const payload = await requestJSON(`/api/data/diary/${dateStr}`);
+        return payload.diary || null;
     } catch {
         return null;
     }
 }
 
 /**
- * Write diary data to disk (creates file if absent).
+ * Write diary data to PlanTrace/data/diary (creates file if absent).
  */
-export async function writeDiary(dirHandle, dateStr, data) {
-    const fh       = await dirHandle.getFileHandle(`diary-${dateStr}.json`, { create: true });
-    const writable = await fh.createWritable();
-    await writable.write(JSON.stringify({ ...data, lastModified: Date.now() }, null, 2));
-    await writable.close();
+export async function writeDiary(_dirHandle, dateStr, data) {
+    const payload = await requestJSON(`/api/data/diary/${dateStr}`, {
+        method: 'POST',
+        body: JSON.stringify({ diary: { ...data, lastModified: Date.now() } }),
+    });
+    return payload.diary;
+}
+
+async function collectDiaryEntriesFromHandle(dirHandle) {
+    const entries = [];
+    if (!dirHandle || !dirHandle.entries) return entries;
+
+    for await (const [name, handle] of dirHandle.entries()) {
+        const match = /^diary-(\d{4}-\d{2}-\d{2})\.json$/.exec(name);
+        if (!match || handle.kind !== 'file') continue;
+        try {
+            const file = await handle.getFile();
+            const diary = JSON.parse(await file.text());
+            entries.push({ date: match[1], diary });
+        } catch {
+            /* skip invalid legacy diary file */
+        }
+    }
+
+    return entries;
+}
+
+async function importDiaryEntries(entries) {
+    if (!entries.length) {
+        return { imported: 0, skipped: 0 };
+    }
+    return requestJSON('/api/data/diary-import', {
+        method: 'POST',
+        body: JSON.stringify({ entries }),
+    });
+}
+
+export async function migrateLegacyDiaries({ requestPermission = false } = {}) {
+    const handle = await getSavedDirHandle();
+    if (!handle) return { status: 'none', imported: 0, skipped: 0 };
+
+    const opts = { mode: 'readwrite' };
+    let permission = 'denied';
+    try {
+        permission = await handle.queryPermission(opts);
+        if (permission !== 'granted' && requestPermission) {
+            permission = await handle.requestPermission(opts);
+        }
+    } catch {
+        return { status: 'stale', imported: 0, skipped: 0 };
+    }
+
+    if (permission !== 'granted') {
+        return { status: 'needs-permission', imported: 0, skipped: 0 };
+    }
+
+    const entries = await collectDiaryEntriesFromHandle(handle);
+    const result = await importDiaryEntries(entries);
+    return { status: 'imported', ...result };
+}
+
+export async function importLegacyDiaryDirectory() {
+    const handle = await pickDirectory();
+    if (!handle) return { status: 'canceled', imported: 0, skipped: 0 };
+    const ok = await verifyPermission(handle);
+    if (!ok) return { status: 'needs-permission', imported: 0, skipped: 0 };
+    const entries = await collectDiaryEntriesFromHandle(handle);
+    const result = await importDiaryEntries(entries);
+    return { status: 'imported', ...result };
 }
 
 // ---------------------------------------------------------------------------

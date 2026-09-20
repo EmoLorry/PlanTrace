@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Maximize2, Minimize2, FolderOpen, Plus, Trash2, Check, BookOpen } from 'lucide-react';
 import {
-    getSavedDirHandle, pickDirectory, verifyPermission,
-    readDiary, writeDiary, createEmptyDiary, noteId, clearDirHandle,
+    ensureDiaryStorage, importLegacyDiaryDirectory, migrateLegacyDiaries,
+    readDiary, writeDiary, createEmptyDiary, noteId,
 } from '../store/diaryStore.js';
 
 // ---------------------------------------------------------------------------
@@ -90,8 +90,8 @@ function FolderBanner({ onPick }) {
     return (
         <div className="diary-folder-banner">
             <FolderOpen size={18} className="diary-folder-icon" />
-            <p className="diary-folder-text">请选择本地文件夹来保存日记(可以新建一个文件夹)</p>
-            <button className="diary-folder-btn" onClick={onPick}>选择文件夹</button>
+            <p className="diary-folder-text">日记已统一保存到 PlanTrace/data/diary。需要时可一次性导入旧日记文件夹。</p>
+            <button className="diary-folder-btn" onClick={onPick}>导入旧日记文件夹</button>
         </div>
     );
 }
@@ -104,46 +104,46 @@ export default function DiaryModal({ selectedDate, onClose }) {
     const [tab, setTab] = useState('main'); // 'main' | 'notes' (compact mode only)
 
     // File system state
-    const [dirHandle, setDirHandle] = useState(null);
-    const [fsState, setFsState] = useState('loading'); // 'loading' | 'ready' | 'nodir' | 'error'
+    const [fsState, setFsState] = useState('loading'); // 'loading' | 'ready' | 'error'
+    const [migrationInfo, setMigrationInfo] = useState(null);
 
     // Diary data
     const [diary, setDiary] = useState(createEmptyDiary());
     const [saving, setSaving] = useState(false);
 
     const saveTimerRef = useRef(null);
-    const dirRef = useRef(null);
-    dirRef.current = dirHandle;
 
-    // ── Load directory handle on mount ──
+    // ── Prepare PlanTrace data/diary storage on mount ──
     useEffect(() => {
         (async () => {
-            const handle = await getSavedDirHandle();
-            if (!handle) { setFsState('nodir'); return; }
-            const ok = await verifyPermission(handle);
-            if (!ok) { setFsState('nodir'); return; }
-            setDirHandle(handle);
-            setFsState('ready');
+            try {
+                await ensureDiaryStorage();
+                const migration = await migrateLegacyDiaries({ requestPermission: false });
+                setMigrationInfo(migration);
+                setFsState('ready');
+            } catch (e) {
+                console.error('Diary storage init failed:', e);
+                setFsState('error');
+            }
         })();
     }, []);
 
-    // ── Load diary data when dir and date are ready ──
+    // ── Load diary data when storage and date are ready ──
     useEffect(() => {
-        if (fsState !== 'ready' || !dirHandle) return;
+        if (fsState !== 'ready') return;
         (async () => {
-            const data = await readDiary(dirHandle, selectedDate);
+            const data = await readDiary(null, selectedDate);
             setDiary(data || createEmptyDiary());
         })();
-    }, [fsState, dirHandle, selectedDate]);
+    }, [fsState, selectedDate]);
 
     // ── Auto-save with 800ms debounce ──
     const scheduleSave = useCallback((data) => {
-        if (!dirRef.current) return;
         clearTimeout(saveTimerRef.current);
         setSaving(true);
         saveTimerRef.current = setTimeout(async () => {
             try {
-                await writeDiary(dirRef.current, selectedDate, data);
+                await writeDiary(null, selectedDate, data);
             } catch (e) {
                 console.error('Diary save failed:', e);
             } finally {
@@ -160,11 +160,19 @@ export default function DiaryModal({ selectedDate, onClose }) {
         });
     }, [scheduleSave]);
 
-    const handlePickDir = async () => {
-        const handle = await pickDirectory();
-        if (!handle) return;
-        const ok = await verifyPermission(handle);
-        if (ok) { setDirHandle(handle); setFsState('ready'); }
+    const handleImportLegacyDir = async () => {
+        setSaving(true);
+        try {
+            const result = await importLegacyDiaryDirectory();
+            setMigrationInfo(result);
+            const data = await readDiary(null, selectedDate);
+            setDiary(data || createEmptyDiary());
+        } catch (e) {
+            console.error('Legacy diary import failed:', e);
+            setMigrationInfo({ status: 'error', imported: 0, skipped: 0 });
+        } finally {
+            setSaving(false);
+        }
     };
 
     const addNote = () => {
@@ -246,7 +254,7 @@ export default function DiaryModal({ selectedDate, onClose }) {
                         <span className="diary-header-date">{dateLbl}</span>
                         {saving && <span className="diary-saving-dot" title="保存中…" />}
                         {fsState === 'ready' && !saving && (
-                            <span className="diary-saved-dot" title="已保存到本地" />
+                            <span className="diary-saved-dot" title="已保存到 PlanTrace/data/diary" />
                         )}
                     </div>
                     <div className="diary-header-actions">
@@ -263,11 +271,16 @@ export default function DiaryModal({ selectedDate, onClose }) {
                     </div>
                 </div>
 
-                {/* ── No folder state ── */}
+                {/* ── Storage state ── */}
                 {fsState === 'loading' && (
-                    <div className="diary-state-msg">正在恢复文件夹权限…</div>
+                    <div className="diary-state-msg">正在准备 PlanTrace/data/diary…</div>
                 )}
-                {fsState === 'nodir' && <FolderBanner onPick={handlePickDir} />}
+                {fsState === 'error' && (
+                    <div className="diary-state-msg">日记数据文件夹初始化失败，请重启 PlanTrace 后再试。</div>
+                )}
+                {fsState === 'ready' && migrationInfo?.status === 'needs-permission' && (
+                    <FolderBanner onPick={handleImportLegacyDir} />
+                )}
 
                 {/* ── Content ── */}
                 {fsState === 'ready' && (
@@ -308,13 +321,10 @@ export default function DiaryModal({ selectedDate, onClose }) {
                 {fsState === 'ready' && (
                     <div className="diary-footer">
                         <span className="diary-footer-hint">
-                            📁 {dirHandle?.name}
+                            📁 PlanTrace/data/diary
+                            {migrationInfo?.imported > 0 ? ` · 已导入 ${migrationInfo.imported} 篇旧日记` : ''}
                         </span>
-                        <button className="diary-footer-change" onClick={async () => {
-                            await clearDirHandle();
-                            setDirHandle(null);
-                            setFsState('nodir');
-                        }}>更换</button>
+                        <button className="diary-footer-change" onClick={handleImportLegacyDir}>导入旧日记</button>
                     </div>
                 )}
             </div>

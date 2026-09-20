@@ -186,6 +186,10 @@ printf 'Latest version:  v%s\n' "$REMOTE_VERSION"
 
 if ! is_newer_version "$REMOTE_VERSION" "$LOCAL_VERSION"; then
   printf '\nPlanTrace is already up to date.\n'
+  if [[ -f "$PROJECT_DIR/scripts/refresh-macos-launcher.sh" ]]; then
+    plantrace_step "Refreshing desktop launcher"
+    bash "$PROJECT_DIR/scripts/refresh-macos-launcher.sh" "$PROJECT_DIR"
+  fi
   exit 0
 fi
 
@@ -261,7 +265,7 @@ if [[ -f "$PROJECT_DIR/scripts/refresh-macos-launcher.sh" ]]; then
 fi
 
 printf '\nPlanTrace updated to v%s.\n' "$REMOTE_VERSION"
-printf 'User data in browser localStorage and backups/ was not changed.\n'
+printf 'User data in data/, backups/, and legacy browser localStorage was not changed.\n'
 
 if [[ "$NO_LAUNCH" != "1" ]]; then
   printf 'Start PlanTrace now? (Y/n) '

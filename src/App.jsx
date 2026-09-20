@@ -18,7 +18,7 @@ import OnboardingModal from './components/OnboardingModal.jsx';
 import { checkUpdateStatus } from './store/versionStore.js';
 import { markOnboardingSeen, shouldAutoShowOnboarding } from './store/onboardingStore.js';
 import { getTodayBJ } from './store/dateUtils.js';
-import { getJSON, setJSON } from './store/storage.js';
+import { getJSON, initFileStorage, setJSON } from './store/storage.js';
 import {
   getTasksForDate,
   createTask,
@@ -301,12 +301,36 @@ function AppContent() {
   );
 }
 
+function DataBootstrap({ children }) {
+  const [state, setState] = useState('loading');
+
+  useEffect(() => {
+    let alive = true;
+    initFileStorage()
+      .then(() => { if (alive) setState('ready'); })
+      .catch(() => { if (alive) setState('ready'); });
+    return () => { alive = false; };
+  }, []);
+
+  if (state !== 'ready') {
+    return (
+      <div className="h-full w-full flex items-center justify-center bg-slate-950 text-slate-200">
+        <div className="text-sm tracking-wide">Loading PlanTrace data...</div>
+      </div>
+    );
+  }
+
+  return children;
+}
+
 export default function App() {
   return (
-    <ThemeProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </ThemeProvider>
+    <DataBootstrap>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
+      </ThemeProvider>
+    </DataBootstrap>
   );
 }

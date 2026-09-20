@@ -4,7 +4,7 @@
 >
 > A beautiful local-first task manager with atomic timer, diary, and weekly schedule visualization.
 
-![version](https://img.shields.io/badge/版本-v1.4.5-blueviolet)
+![version](https://img.shields.io/badge/版本-v1.5.0-blueviolet)
 ![react](https://img.shields.io/badge/React-19-61dafb)
 ![vite](https://img.shields.io/badge/Vite-7-646cff)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
@@ -60,7 +60,7 @@
 │   └── 内容随时可编辑
 ├── 紧凑浮窗 ↔ 全屏双栏 随时切换
 ├── 800ms 防抖自动保存
-└── 存储到用户自选本地文件夹（File System Access API）
+└── 统一存储到项目 data/diary/ 目录
     每日文件：diary-YYYY-MM-DD.json
 ```
 
@@ -151,13 +151,13 @@ macOS 双击桌面 **PlanTrace.app**，也可以使用备用的 **PlanTrace.comm
 | 应用内 `↻` 图标 → 一键更新 | 应用正在运行，最方便 |
 | 双击 `Update-PlanTrace-Windows.bat` / `Update-PlanTrace-macOS.command` | 应用未运行，命令行更新 |
 
-两种方式均**自动保护用户数据**，不触碰 `backups/`、`start.bat` 及浏览器 localStorage。
+两种方式均**自动保护用户数据**，不触碰 `data/`、`backups/` 和 `start.bat`；旧浏览器 localStorage 会在首次启动时自动迁移。
 
 ---
 
 ## 🏗️ 数据架构（Event Sourcing）
 
-所有数据存储在浏览器 **LocalStorage**，严格分离为两个集合：
+应用运行数据统一保存到项目本地 `data/plantrace-data.json`；旧浏览器 **LocalStorage** 会在首次启动时自动迁移，事件溯源集合仍严格分离为两个集合：
 
 ### Tasks — 任务池
 
@@ -213,6 +213,9 @@ PlanTrace/
 │   ├── plantrace.ico           # Windows 桌面快捷方式图标
 │   ├── plantrace.icns          # macOS 桌面 App 图标
 │   └── plantrace-icon.svg      # 浏览器标签页图标
+├── data/                       # 本地用户数据（自动创建，不提交）
+│   ├── plantrace-data.json      # 任务 / 日志 / 原子钟 / 主题等应用数据
+│   └── diary/                   # 每日主日记 + 碎碎念 JSON 文件
 ├── backups/                    # 导出的 JSON 备份（自动创建）
 ├── Install-PlanTrace-From-GitHub-Windows.bat # Windows 一键安装
 ├── Install-PlanTrace-From-GitHub-macOS.command # macOS 一键安装
@@ -226,11 +229,11 @@ PlanTrace/
     ├── index.css               # 设计系统（毛玻璃、渐变、动画）
     ├── store/
     │   ├── dateUtils.js        # 北京时间工具函数
-    │   ├── storage.js          # LocalStorage 封装 + 导出备份
+    │   ├── storage.js          # data/ 文件存储 + 旧 LocalStorage 迁移 + 导出备份
     │   ├── taskStore.js        # 任务 CRUD（每次操作追加 ActionLog）
     │   ├── actionLogStore.js   # 只追加的不可变日志
     │   ├── atomicStore.js      # 原子专注记录
-    │   ├── diaryStore.js       # 日记 File System Access API 封装
+    │   ├── diaryStore.js       # 日记 data/diary 文件存储 + 旧目录导入
     │   ├── versionStore.js     # 版本检测（远端拉取 + 超时 + 冷却）
     │   └── onboardingStore.js  # 新手指引显示状态
     └── components/
@@ -273,7 +276,7 @@ PlanTrace/
 | 图标 | Lucide React |
 | 3D | Three.js + @react-three/fiber |
 | 动效 | Framer Motion |
-| 存储 | LocalStorage（Event Sourcing）+ File System Access API（日记） |
+| 存储 | 本地 data/ 文件存储（Event Sourcing）+ 旧 LocalStorage 自动迁移 |
 | 字体 | Inter（Google Fonts）|
 
 ---
@@ -282,14 +285,15 @@ PlanTrace/
 
 ```
 用户数据存储位置：
-├── 任务 / 日志 / 专注记录  →  浏览器 LocalStorage（只在 localhost:5173）
-├── 日记文件               →  用户自选本地文件夹（与项目目录无关）
-└── 导出备份               →  项目 backups/ 目录
+├── 任务 / 日志 / 专注记录 / 主题  →  项目 data/plantrace-data.json
+├── 日记文件                    →  项目 data/diary/ 目录
+├── 浏览器 LocalStorage          →  仅作为旧数据自动迁移来源
+└── 导出备份                    →  项目 backups/ 目录
                                plantrace_backup_2026-09-19.json
 ```
 
 > [!IMPORTANT]
-> 更新代码时，以上三处数据**均不会被覆盖或删除**。
+> 更新代码时，`data/` 和 `backups/` **均不会被覆盖或删除**。
 
 ---
 
@@ -307,4 +311,3 @@ PlanTrace/
 > 商业授权请通过 GitHub 联系作者。
 
 © 2026 [EmoLorry](https://github.com/EmoLorry) · [查看完整许可协议](LICENSE)
-

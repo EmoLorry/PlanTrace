@@ -1,12 +1,30 @@
 {
-  "version": "1.4.5",
+  "version": "1.5.0",
   "releaseDate": "2026-09-20",
   "releaseNotes": [
-    "新增 macOS 桌面 PlanTrace.app 启动器，使用专属 plantrace.icns 图标",
-    "macOS 安装、手动更新和 postinstall 会自动刷新桌面 PlanTrace.app，同时保留 PlanTrace.command 备用入口",
-    "图标生成器同步产出 Windows .ico、macOS .icns 和浏览器 SVG 图标"
+    "新增本地 data 数据中心：任务、日志、原子钟、主题等浏览器数据会自动迁移到 data/plantrace-data.json",
+    "日记统一保存到 data/diary/，旧日记文件夹在权限仍有效时会自动导入，也可手动导入",
+    "安装/重装脚本会保留 data/ 与 backups/，后续更新不会覆盖用户数据"
   ],
   "history": [
+    {
+      "version": "1.5.0",
+      "releaseDate": "2026-09-20",
+      "releaseNotes": [
+        "新增本地 data 数据中心：任务、日志、原子钟、主题等浏览器数据会自动迁移到 data/plantrace-data.json",
+        "日记统一保存到 data/diary/，旧日记文件夹在权限仍有效时会自动导入，也可手动导入",
+        "安装/重装脚本会保留 data/ 与 backups/，后续更新不会覆盖用户数据"
+      ]
+    },
+    {
+      "version": "1.4.6",
+      "releaseDate": "2026-09-20",
+      "releaseNotes": [
+        "修复已更新到新版后再次检查显示已是最新时不会补建桌面快捷方式的问题",
+        "Windows 手动更新即使没有新版本，也会刷新桌面 PlanTrace.lnk 和专属图标",
+        "macOS 手动更新即使没有新版本，也会刷新桌面 PlanTrace.app 和备用 PlanTrace.command"
+      ]
+    },
     {
       "version": "1.4.5",
       "releaseDate": "2026-09-20",
