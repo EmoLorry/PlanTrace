@@ -4,6 +4,7 @@ import {
     ChevronRight,
     CalendarPlus,
     Download,
+    Smartphone,
 } from 'lucide-react';
 import {
     getTodayBJ,
@@ -15,7 +16,7 @@ import {
 import { getDateStatus, getPendingCountForDate } from '../store/taskStore.js';
 import { exportBackup } from '../store/storage.js';
 
-export default function Sidebar({ selectedDate, onDateSelect, onPlanFuture }) {
+export default function Sidebar({ selectedDate, onDateSelect, onPlanFuture, onMobileTransfer }) {
     const [offset, setOffset] = useState(0);
     const todayStr = getTodayBJ();
 
@@ -176,6 +177,15 @@ export default function Sidebar({ selectedDate, onDateSelect, onPlanFuture }) {
                 >
                     <Download size={15} />
                     <span className="font-medium">Backup Data</span>
+                </button>
+                <button
+                    onClick={onMobileTransfer}
+                    className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl
+                        text-text-secondary hover:text-text-primary hover:bg-black/4 transition-all text-sm"
+                    title="生成手机端离线传输包"
+                >
+                    <Smartphone size={15} />
+                    <span className="font-medium">Mobile Sync</span>
                 </button>
             </div>
         </aside>

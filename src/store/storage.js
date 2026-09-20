@@ -162,18 +162,7 @@ export function removeKey(key) {
     persistKey(key, null, true);
 }
 
-/**
- * Export a full backup as a JSON file saved to backups/ via the Vite dev server.
- * Filename uses Beijing time (UTC+8).
- */
-export async function exportBackup() {
-    const now = new Date();
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-    const bjDate = new Date(utcMs + 8 * 60 * 60000);
-    const y = bjDate.getFullYear();
-    const m = String(bjDate.getMonth() + 1).padStart(2, '0');
-    const d = String(bjDate.getDate()).padStart(2, '0');
-    const filename = `plantrace_backup_${y}-${m}-${d}.json`;
+export async function createBackupPayload() {
     let backupPayload = {
         schemaVersion: 3,
         storageMode,
@@ -196,6 +185,28 @@ export async function exportBackup() {
             diaries: Array.isArray(snapshot.diaries) ? snapshot.diaries : [],
             exportedAt: snapshot.exportedAt || new Date().toISOString(),
         };
+    } catch {
+        /* Fall back to the in-memory cache if the local API is unavailable. */
+    }
+
+    return backupPayload;
+}
+
+/**
+ * Export a full backup as a JSON file saved to backups/ via the Vite dev server.
+ * Filename uses Beijing time (UTC+8).
+ */
+export async function exportBackup() {
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const bjDate = new Date(utcMs + 8 * 60 * 60000);
+    const y = bjDate.getFullYear();
+    const m = String(bjDate.getMonth() + 1).padStart(2, '0');
+    const d = String(bjDate.getDate()).padStart(2, '0');
+    const filename = `plantrace_backup_${y}-${m}-${d}.json`;
+    const backupPayload = await createBackupPayload();
+
+    try {
         const jsonStr = JSON.stringify(backupPayload, null, 2);
         const res = await fetch('/api/backup', {
             method: 'POST',

@@ -4,7 +4,7 @@
 >
 > A beautiful local-first task manager with atomic timer, diary, and weekly schedule visualization.
 
-![version](https://img.shields.io/badge/版本-v1.5.4-blueviolet)
+![version](https://img.shields.io/badge/版本-v1.7.3-blueviolet)
 ![react](https://img.shields.io/badge/React-19-61dafb)
 ![vite](https://img.shields.io/badge/Vite-7-646cff)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
@@ -116,7 +116,19 @@ macOS 双击 `Install-PlanTrace-From-GitHub-macOS.command`
 > [!NOTE]
 > **Windows 10 / 11** 通常自带 winget，无需任何手动准备，直接双击即可。
 > 极少数情况 winget 不可用时，脚本会自动打开 Node.js 下载页面引导手动安装。
-> MacOS可能需要一定的权限设置，这是mac安全机制所必需的。
+
+> [!TIP]
+> macOS 如果提示“Apple 无法验证此文件”或“双击后没有权限”，这是 macOS 对下载脚本的安全拦截，不是 PlanTrace 安装失败。推荐把脚本放到“下载”文件夹后，在“终端”执行：
+>
+> ```bash
+> cd ~/Downloads
+> chmod +x Install-PlanTrace-From-GitHub-macOS.command
+> xattr -d com.apple.quarantine Install-PlanTrace-From-GitHub-macOS.command 2>/dev/null || true
+> bash Install-PlanTrace-From-GitHub-macOS.command
+> ```
+>
+> 如果终端提示没有文件夹访问权限，请到 `系统设置 → 隐私与安全性 → 文件与文件夹` 或 `完全磁盘访问权限`，给 **Terminal / 终端** 打开权限后重试。PlanTrace 默认安装到 `~/Applications/PlanTrace`，通常不需要 `sudo`。
+
 ---
 
 ### 方式二：手动安装
@@ -212,7 +224,8 @@ PlanTrace/
 │   ├── version.json            # 远端版本清单（推送后用于检测更新）
 │   ├── plantrace.ico           # Windows 桌面快捷方式图标
 │   ├── plantrace.icns          # macOS 桌面 App 图标
-│   └── plantrace-icon.svg      # 浏览器标签页图标
+│   ├── plantrace-icon.svg      # 浏览器标签页图标
+│   └── mobile.html             # 单文件手机端 PlanTrace（导入 Mobile Sync / Backup Data）
 ├── data/                       # 本地用户数据（自动创建，不提交）
 │   ├── plantrace-data.json      # 任务 / 日志 / 原子钟 / 主题等应用数据
 │   └── diary/                   # 每日主日记 + 碎碎念 JSON 文件
@@ -295,6 +308,8 @@ PlanTrace/
 > [!IMPORTANT]
 > 更新代码时，`data/` 和 `backups/` **均不会被覆盖或删除**。
 > 左下角 `Backup Data` 会额外生成一份完整 JSON 备份，包含主数据和 `data/diary/` 日记内容。
+> 左下角 `Mobile Sync` 可生成手机端导入数据包，也可合并手机端导出的 JSON 回电脑端；电脑端和手机端导入都按 id 合并，不整库覆盖，同一天日记会做安全合并。
+> 手机端支持轻量主题切换，导出的 JSON 会带上当前移动端主题。
 
 ---
 

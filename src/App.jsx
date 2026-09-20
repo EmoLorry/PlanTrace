@@ -15,6 +15,7 @@ import DiaryModal from './components/DiaryModal.jsx';
 import WeekView from './components/WeekView.jsx';
 import UpdateModal from './components/UpdateModal.jsx';
 import OnboardingModal from './components/OnboardingModal.jsx';
+import MobileTransferModal from './components/MobileTransferModal.jsx';
 import { checkUpdateStatus } from './store/versionStore.js';
 import { markOnboardingSeen, shouldAutoShowOnboarding } from './store/onboardingStore.js';
 import { getNextMidnightMsBJ, getTodayBJ } from './store/dateUtils.js';
@@ -45,6 +46,7 @@ function AppContent() {
   const [showDiary,      setShowDiary]      = useState(false);
   const [showWeekView,   setShowWeekView]   = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showMobileTransfer, setShowMobileTransfer] = useState(false);
   const [updateManifest, setUpdateManifest] = useState(null);  // remote version info
   const [updateIsManual, setUpdateIsManual] = useState(false); // triggered by button?
   const [showEdge, setShowEdge] = useState(() => {
@@ -170,6 +172,7 @@ function AppContent() {
             selectedDate={selectedDate}
             onDateSelect={handleDateSelect}
             onPlanFuture={() => setShowPlanFuture(true)}
+            onMobileTransfer={() => setShowMobileTransfer(true)}
           />
 
           <div className="w-px my-6" style={{ background: 'var(--th-divider)' }} />
@@ -289,6 +292,10 @@ function AppContent() {
               initialDate={selectedDate}
               onClose={() => setShowWeekView(false)}
             />
+          )}
+
+          {showMobileTransfer && (
+            <MobileTransferModal onClose={() => setShowMobileTransfer(false)} />
           )}
 
           {updateManifest && (

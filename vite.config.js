@@ -153,6 +153,81 @@ function writeDiaryFile(dateStr, data) {
   return next;
 }
 
+function normalizeDiaryData(data) {
+  return {
+    mainText: typeof data?.mainText === 'string' ? data.mainText : '',
+    notes: Array.isArray(data?.notes) ? data.notes.filter((note) => note && typeof note === 'object') : [],
+    lastModified: Number(data?.lastModified) || 0,
+  };
+}
+
+function diaryHasContent(data) {
+  const diary = normalizeDiaryData(data);
+  return Boolean(
+    diary.mainText.trim()
+    || diary.notes.some((note) => String(note?.text || '').trim())
+  );
+}
+
+function noteKey(note, index, prefix) {
+  if (note?.id) return String(note.id);
+  const text = String(note?.text || '').trim();
+  const createdAt = note?.createdAt || note?.created_at || '';
+  const color = note?.color || '';
+  if (text || createdAt || color) return `${createdAt}|${color}|${text}`;
+  return `${prefix}-${index}`;
+}
+
+function noteModified(note, fallbackModified) {
+  return Number(note?.updatedAt || note?.updated_at || note?.lastModified || note?.createdAt || note?.created_at) || fallbackModified || 0;
+}
+
+function mergeDiaryData(existingRaw, incomingRaw) {
+  const existing = normalizeDiaryData(existingRaw);
+  const incoming = normalizeDiaryData(incomingRaw);
+  const existingModified = existing.lastModified;
+  const incomingModified = incoming.lastModified;
+  const existingText = existing.mainText;
+  const incomingText = incoming.mainText;
+
+  let mainText = existingText;
+  if (incomingText.trim()) {
+    if (!existingText.trim() || incomingModified >= existingModified) {
+      mainText = incomingText;
+    }
+  } else if (!existingText.trim()) {
+    mainText = incomingText;
+  }
+
+  const noteMap = new Map();
+  const putNote = (note, index, prefix, sourceModified) => {
+    if (!note || typeof note !== 'object' || !String(note.text || '').trim()) return;
+    const key = noteKey(note, index, prefix);
+    const modified = noteModified(note, sourceModified);
+    const current = noteMap.get(key);
+    if (!current || modified >= current.modified) {
+      noteMap.set(key, { note, modified });
+    }
+  };
+
+  existing.notes.forEach((note, index) => putNote(note, index, 'existing', existingModified));
+  incoming.notes.forEach((note, index) => putNote(note, index, 'incoming', incomingModified));
+
+  const notes = [...noteMap.values()]
+    .map((entry) => entry.note)
+    .sort((a, b) => noteModified(b, 0) - noteModified(a, 0));
+
+  return {
+    mainText,
+    notes,
+    lastModified: Math.max(existingModified, incomingModified) || Date.now(),
+  };
+}
+
+function diaryEquals(leftRaw, rightRaw) {
+  return JSON.stringify(normalizeDiaryData(leftRaw)) === JSON.stringify(normalizeDiaryData(rightRaw));
+}
+
 function readAllDiaryFiles() {
   const { diaryDir } = ensureDataDirs();
   return fs.readdirSync(diaryDir, { withFileTypes: true })
@@ -165,6 +240,105 @@ function readAllDiaryFiles() {
     })
     .filter((entry) => entry.diary)
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function normalizeImportedPack(raw) {
+  const pack = raw?.type === 'plantrace-mobile-pack' ? raw.payload : raw;
+  if (!pack || typeof pack !== 'object') {
+    throw new Error('Invalid PlanTrace import file.');
+  }
+
+  const keys = pack.keys && typeof pack.keys === 'object' ? pack.keys : {};
+  const diaries = Array.isArray(pack.diaries) ? pack.diaries : [];
+  return { keys, diaries };
+}
+
+function mergeById(existing, incoming, idKey) {
+  const map = new Map();
+  let imported = 0;
+  let replaced = 0;
+
+  for (const item of Array.isArray(existing) ? existing : []) {
+    if (item && item[idKey]) map.set(item[idKey], item);
+  }
+
+  for (const item of Array.isArray(incoming) ? incoming : []) {
+    if (!item || !item[idKey]) continue;
+    const current = map.get(item[idKey]);
+    if (!current) {
+      imported += 1;
+      map.set(item[idKey], item);
+      continue;
+    }
+
+    const incomingModified = Number(item.updated_at || item.lastModified || item.completed_at || item.timestamp || item.created_at) || 0;
+    const currentModified = Number(current.updated_at || current.lastModified || current.completed_at || current.timestamp || current.created_at) || 0;
+    if (incomingModified >= currentModified) {
+      replaced += 1;
+      map.set(item[idKey], item);
+    }
+  }
+
+  return { items: [...map.values()], imported, replaced };
+}
+
+function mergeMobilePack(raw) {
+  const importedPack = normalizeImportedPack(raw);
+  const data = readPlanTraceData();
+  const keys = data.keys && typeof data.keys === 'object' ? data.keys : {};
+  const stats = {
+    tasks: { imported: 0, replaced: 0 },
+    logs: { imported: 0, replaced: 0 },
+    atomicSessions: { imported: 0, replaced: 0 },
+    diaries: { imported: 0, replaced: 0, skipped: 0 },
+  };
+
+  const taskMerge = mergeById(keys.tasks, importedPack.keys.tasks, 'id');
+  keys.tasks = taskMerge.items;
+  stats.tasks = { imported: taskMerge.imported, replaced: taskMerge.replaced };
+
+  const logMerge = mergeById(keys.action_logs, importedPack.keys.action_logs, 'log_id');
+  keys.action_logs = logMerge.items;
+  stats.logs = { imported: logMerge.imported, replaced: logMerge.replaced };
+
+  const atomicMerge = mergeById(keys.atomic_sessions, importedPack.keys.atomic_sessions, 'session_id');
+  keys.atomic_sessions = atomicMerge.items;
+  stats.atomicSessions = { imported: atomicMerge.imported, replaced: atomicMerge.replaced };
+
+  data.keys = keys;
+  writePlanTraceData(data);
+
+  for (const entry of importedPack.diaries) {
+    try {
+      const date = validateDateString(entry.date);
+      const incoming = entry.diary || entry.data;
+      const existing = readDiaryFile(date);
+      if (!existing) {
+        if (!diaryHasContent(incoming)) {
+          stats.diaries.skipped += 1;
+          continue;
+        }
+        writeDiaryFile(date, incoming);
+        stats.diaries.imported += 1;
+      } else {
+        if (!diaryHasContent(incoming)) {
+          stats.diaries.skipped += 1;
+          continue;
+        }
+        const merged = mergeDiaryData(existing, incoming);
+        if (diaryEquals(existing, merged)) {
+          stats.diaries.skipped += 1;
+          continue;
+        }
+        writeDiaryFile(date, merged);
+        stats.diaries.replaced += 1;
+      }
+    } catch {
+      stats.diaries.skipped += 1;
+    }
+  }
+
+  return stats;
 }
 
 function dataPlugin() {
@@ -277,19 +451,38 @@ function dataPlugin() {
                 const date = validateDateString(entry.date);
                 const incoming = entry.diary || entry.data;
                 const existing = readDiaryFile(date);
-                const incomingModified = Number(incoming?.lastModified) || 0;
-                const existingModified = Number(existing?.lastModified) || 0;
-                if (!existing || incomingModified >= existingModified) {
+                if (!existing) {
+                  if (!diaryHasContent(incoming)) {
+                    skipped += 1;
+                    continue;
+                  }
                   writeDiaryFile(date, incoming);
                   imported += 1;
                 } else {
-                  skipped += 1;
+                  if (!diaryHasContent(incoming)) {
+                    skipped += 1;
+                    continue;
+                  }
+                  const merged = mergeDiaryData(existing, incoming);
+                  if (diaryEquals(existing, merged)) {
+                    skipped += 1;
+                    continue;
+                  }
+                  writeDiaryFile(date, merged);
+                  imported += 1;
                 }
               } catch {
                 skipped += 1;
               }
             }
             sendJson(res, { success: true, imported, skipped, diaryPath: diaryDir });
+            return;
+          }
+
+          if (route === '/mobile-import' && req.method === 'POST') {
+            const body = await readRequestJson(req);
+            const stats = mergeMobilePack(body.pack || body);
+            sendJson(res, { success: true, stats });
             return;
           }
 
