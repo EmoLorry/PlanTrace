@@ -74,7 +74,7 @@ const steps = [
         demo: 'localData',
         eyebrow: '本地优先',
         title: '数据留在你的电脑里',
-        body: '任务和主题保存在本机浏览器数据中，日记保存在你选择的文件夹里。后续更新不会覆盖个人数据。',
+        body: '任务、主题和日记统一保存在项目 data 文件夹里。后续更新不会覆盖个人数据，也可以导出完整备份。',
         accent: 'var(--color-accent)',
     },
 ];

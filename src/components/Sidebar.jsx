@@ -172,9 +172,10 @@ export default function Sidebar({ selectedDate, onDateSelect, onPlanFuture }) {
                     onClick={exportBackup}
                     className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl
                         text-text-secondary hover:text-text-primary hover:bg-black/4 transition-all text-sm"
+                    title="导出完整备份：任务、日志、主题和日记"
                 >
                     <Download size={15} />
-                    <span className="font-medium">Export Data</span>
+                    <span className="font-medium">Backup Data</span>
                 </button>
             </div>
         </aside>

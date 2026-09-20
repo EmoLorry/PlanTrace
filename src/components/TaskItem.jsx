@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Hammer, Trash2, Edit2 } from 'lucide-react';
-import { isToday, formatTimeBJ, getMsUntilEndOfDayBJ, isEndOfDayBJ } from '../store/dateUtils.js';
+import { isToday, formatTimeBJ, getNextMidnightMsBJ, isEndOfDayBJ } from '../store/dateUtils.js';
 import { getHammerCount } from '../store/actionLogStore.js';
 import { getTimeSpent } from '../store/taskStore.js';
 
@@ -88,6 +88,7 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
     const intervalRef = useRef(null);
     const startTimeRef = useRef(null);
     const endOfDayTimeoutRef = useRef(null);
+    const attachIntervalRef = useRef(null);
 
     // Edit state
     const [isEditing, setIsEditing] = useState(false);
@@ -99,14 +100,22 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
 
     // Internal helper: flush elapsed time to the store.
     // Reads startTime from sessionStorage first for accuracy after HMR / sleep.
-    const flushTimer = useCallback((taskId) => {
+    const flushTimer = useCallback((taskId, endMs = Date.now(), { keepRunning = false } = {}) => {
         const persistedStart = getActiveTimers()[taskId];
         const startTime = persistedStart ?? startTimeRef.current;
-        clearActiveTimer(taskId);
-        startTimeRef.current = null;
-        const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
+        if (keepRunning) {
+            setActiveTimer(taskId, endMs);
+            startTimeRef.current = endMs;
+        } else {
+            clearActiveTimer(taskId);
+            startTimeRef.current = null;
+        }
+        const elapsed = startTime ? Math.floor((endMs - startTime) / 1000) : 0;
         if (elapsed > 0) {
-            onTimerStopRef.current(taskId, elapsed);
+            onTimerStopRef.current(taskId, {
+                startMs: startTime,
+                endMs: startTime + elapsed * 1000,
+            });
         }
         return elapsed;
     }, []);
@@ -138,11 +147,18 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
         }, 1000);
 
         if (endOfDayTimeoutRef.current) clearTimeout(endOfDayTimeoutRef.current);
-        const msRemaining = getMsUntilEndOfDayBJ();
-        if (msRemaining > 0) {
-            endOfDayTimeoutRef.current = setTimeout(() => stopTimer(), msRemaining);
-        }
-    }, [stopTimer]);
+        const boundary = getNextMidnightMsBJ(startTime);
+        const msRemaining = Math.max(0, boundary - Date.now());
+        endOfDayTimeoutRef.current = setTimeout(() => {
+            flushTimer(task.id, boundary, { keepRunning: true });
+            setElapsedSeconds(Math.max(0, Math.floor((Date.now() - boundary) / 1000)));
+            attachIntervalRef.current?.(boundary);
+        }, msRemaining);
+    }, [flushTimer, task.id]);
+
+    useEffect(() => {
+        attachIntervalRef.current = attachInterval;
+    }, [attachInterval]);
 
     // Start timer
     const startTimer = useCallback(() => {
@@ -172,7 +188,7 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
     // Layer 1 — HMR / Refresh Recovery: on mount, check sessionStorage for a
     // persisted startTime. If found, silently restore the running timer state
     // so the timer continues from where it left off.
-    // Time is only recorded when the user explicitly clicks stop.
+    // Cross-midnight time is automatically flushed and continued on the new day.
     // ---------------------------------------------------------------------------
     useEffect(() => {
         const persistedStart = getActiveTimers()[task.id];

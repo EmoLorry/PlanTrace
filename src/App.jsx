@@ -17,7 +17,7 @@ import UpdateModal from './components/UpdateModal.jsx';
 import OnboardingModal from './components/OnboardingModal.jsx';
 import { checkUpdateStatus } from './store/versionStore.js';
 import { markOnboardingSeen, shouldAutoShowOnboarding } from './store/onboardingStore.js';
-import { getTodayBJ } from './store/dateUtils.js';
+import { getNextMidnightMsBJ, getTodayBJ } from './store/dateUtils.js';
 import { getJSON, initFileStorage, setJSON } from './store/storage.js';
 import {
   getTasksForDate,
@@ -25,8 +25,8 @@ import {
   editTaskContent,
   completeTask,
   deleteTask,
-  hammerTask,
-  addTimeSpent,
+  recordHammerSession,
+  repairTaskDateIntegrity,
   rolloverTask,
   getPendingRolloverCandidates,
 } from './store/taskStore.js';
@@ -87,6 +87,17 @@ function AppContent() {
   const tasks = getTasksForDate(selectedDate);
 
   useEffect(() => {
+    const msUntilMidnight = Math.max(0, getNextMidnightMsBJ() - Date.now()) + 100;
+    const timer = setTimeout(() => {
+      const nextToday = getTodayBJ();
+      setSelectedDate((current) => (current === todayStr ? nextToday : current));
+      refresh();
+    }, msUntilMidnight);
+
+    return () => clearTimeout(timer);
+  }, [todayStr, refresh]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       const dismissedDate = getJSON(ROLLOVER_DISMISS_KEY);
       if (dismissedDate === todayStr) return;
@@ -116,10 +127,10 @@ function AppContent() {
     refresh();
   }, [refresh]);
 
-  const handleTimerStop = useCallback((taskId, seconds) => {
-    const todayStr2 = getTodayBJ();
-    addTimeSpent(taskId, todayStr2, seconds);
-    hammerTask(taskId, seconds);
+  const handleTimerStop = useCallback((taskId, session) => {
+    const endMs = Number(session?.endMs) || Date.now();
+    const startMs = Number(session?.startMs) || (endMs - Number(session || 0) * 1000);
+    recordHammerSession(taskId, startMs, endMs);
     refresh();
   }, [refresh]);
 
@@ -307,7 +318,10 @@ function DataBootstrap({ children }) {
   useEffect(() => {
     let alive = true;
     initFileStorage()
-      .then(() => { if (alive) setState('ready'); })
+      .then(() => {
+        repairTaskDateIntegrity();
+        if (alive) setState('ready');
+      })
       .catch(() => { if (alive) setState('ready'); });
     return () => { alive = false; };
   }, []);

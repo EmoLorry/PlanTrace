@@ -1,10 +1,15 @@
 import { getJSON, setJSON } from './storage.js';
-import { generateId, getTodayBJ, getPastDaysBJ, isPast } from './dateUtils.js';
-import { appendLog, getAllLogs } from './actionLogStore.js';
+import {
+    generateId,
+    getDateBJFromTimestamp,
+    getPastDaysBJ,
+    getTodayBJ,
+    isPast,
+    splitIntervalByBJDate,
+} from './dateUtils.js';
+import { appendLog, getAllLogs, isTaskDateDeleted } from './actionLogStore.js';
 
 const TASKS_KEY = 'tasks';
-
-const BJ_OFFSET = 8 * 60 * 60000;
 
 function getAllTasks() {
     return getJSON(TASKS_KEY) || [];
@@ -14,15 +19,10 @@ function saveTasks(tasks) {
     setJSON(TASKS_KEY, tasks);
 }
 
-function getBJDateFromTimestamp(timestamp) {
-    if (!timestamp) return null;
-    const date = new Date(timestamp);
-    const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
-    const bjDate = new Date(utcMs + BJ_OFFSET);
-    const year = bjDate.getFullYear();
-    const month = String(bjDate.getMonth() + 1).padStart(2, '0');
-    const day = String(bjDate.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+function normalizeActiveDates(task) {
+    task.active_dates = Array.from(new Set(Array.isArray(task.active_dates) ? task.active_dates : []))
+        .filter(Boolean)
+        .sort();
 }
 
 function hasCompleteLogOnDate(taskId, dateStr, logs) {
@@ -35,7 +35,7 @@ function hasCompleteLogOnDate(taskId, dateStr, logs) {
 
 function taskCompletedOnDate(task, dateStr, logs) {
     if (hasCompleteLogOnDate(task.id, dateStr, logs)) return true;
-    if (getBJDateFromTimestamp(task.completed_at) === dateStr) return true;
+    if (task.completed_at && getDateBJFromTimestamp(task.completed_at) === dateStr) return true;
 
     const hasAnyCompleteLog = logs.some(
         (log) => log.task_id === task.id && log.action_type === 'COMPLETE'
@@ -139,6 +139,9 @@ export function deleteTask(taskId, dateStr) {
 
     // 只移除当天，而不是整个任务
     tasks[idx].active_dates = tasks[idx].active_dates.filter((d) => d !== dateStr);
+    if (tasks[idx].time_spent && typeof tasks[idx].time_spent === 'object') {
+        delete tasks[idx].time_spent[dateStr];
+    }
 
     // 如果所有日期都清空了，才真正标记为 deleted
     if (tasks[idx].active_dates.length === 0) {
@@ -168,6 +171,48 @@ export function hammerTask(taskId, durationSeconds) {
         target_date: todayStr,
         duration_seconds: durationSeconds,
     });
+}
+
+/**
+ * Record a real Hammer timer session. If it crosses Beijing midnight, split it
+ * into one segment per day and auto-roll the task into each new date.
+ */
+export function recordHammerSession(taskId, startMs, endMs = Date.now()) {
+    const segments = splitIntervalByBJDate(startMs, endMs);
+    if (segments.length === 0) return null;
+
+    const tasks = getAllTasks();
+    const idx = tasks.findIndex((t) => t.id === taskId);
+    if (idx === -1) return null;
+
+    const task = tasks[idx];
+    normalizeActiveDates(task);
+    if (!task.time_spent || typeof task.time_spent !== 'object') task.time_spent = {};
+
+    for (const segment of segments) {
+        if (!task.active_dates.includes(segment.date)) {
+            task.active_dates.push(segment.date);
+            normalizeActiveDates(task);
+            appendLog({
+                task_id: taskId,
+                action_type: 'ROLLOVER',
+                target_date: segment.date,
+                timestamp: segment.startMs,
+            });
+        }
+
+        task.time_spent[segment.date] = (task.time_spent[segment.date] || 0) + segment.durationSeconds;
+        appendLog({
+            task_id: taskId,
+            action_type: 'HAMMER',
+            target_date: segment.date,
+            duration_seconds: segment.durationSeconds,
+            timestamp: segment.endMs,
+        });
+    }
+
+    saveTasks(tasks);
+    return task;
 }
 
 /**
@@ -240,6 +285,46 @@ export function getPendingRolloverCandidates() {
 export function getPendingCountForDate(dateStr) {
     const logs = getAllLogs();
     return getTasksForDate(dateStr).filter((t) => !taskCompletedOnDate(t, dateStr, logs)).length;
+}
+
+/**
+ * Repair old data where time_spent contains a date missing from active_dates.
+ */
+export function repairTaskDateIntegrity() {
+    const tasks = getAllTasks();
+    const logs = getAllLogs();
+    let changed = false;
+
+    for (const task of tasks) {
+        const beforeDates = JSON.stringify(task.active_dates || []);
+        const beforeTimeSpent = JSON.stringify(task.time_spent || {});
+        normalizeActiveDates(task);
+
+        task.active_dates = task.active_dates.filter((dateStr) => !isTaskDateDeleted(task.id, dateStr, logs));
+
+        if (task.time_spent && typeof task.time_spent === 'object') {
+            for (const [dateStr, seconds] of Object.entries(task.time_spent)) {
+                if (isTaskDateDeleted(task.id, dateStr, logs)) {
+                    delete task.time_spent[dateStr];
+                    continue;
+                }
+                if (Number(seconds) > 0 && !task.active_dates.includes(dateStr)) {
+                    task.active_dates.push(dateStr);
+                }
+            }
+        }
+
+        normalizeActiveDates(task);
+        if (
+            JSON.stringify(task.active_dates) !== beforeDates
+            || JSON.stringify(task.time_spent || {}) !== beforeTimeSpent
+        ) {
+            changed = true;
+        }
+    }
+
+    if (changed) saveTasks(tasks);
+    return changed;
 }
 
 /**

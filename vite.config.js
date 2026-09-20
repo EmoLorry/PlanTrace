@@ -153,6 +153,20 @@ function writeDiaryFile(dateStr, data) {
   return next;
 }
 
+function readAllDiaryFiles() {
+  const { diaryDir } = ensureDataDirs();
+  return fs.readdirSync(diaryDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => /^diary-(\d{4}-\d{2}-\d{2})\.json$/.exec(entry.name))
+    .filter(Boolean)
+    .map((match) => {
+      const date = match[1];
+      return { date, diary: readDiaryFile(date) };
+    })
+    .filter((entry) => entry.diary)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function dataPlugin() {
   return {
     name: 'plantrace-data',
@@ -220,6 +234,20 @@ function dataPlugin() {
 
           if (route === '/info' && req.method === 'GET') {
             sendJson(res, { success: true, dataPath: dataDir, diaryPath: diaryDir });
+            return;
+          }
+
+          if (route === '/export' && req.method === 'GET') {
+            const data = readPlanTraceData();
+            sendJson(res, {
+              success: true,
+              schemaVersion: DATA_SCHEMA_VERSION,
+              exportedAt: new Date().toISOString(),
+              dataPath: dataFile,
+              diaryPath: diaryDir,
+              keys: data.keys,
+              diaries: readAllDiaryFiles(),
+            });
             return;
           }
 

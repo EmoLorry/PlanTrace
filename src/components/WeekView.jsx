@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
-import { getAllLogs } from '../store/actionLogStore.js';
+import { getAllLogs, isTaskDateDeleted } from '../store/actionLogStore.js';
 import { getJSON } from '../store/storage.js';
 import { parseDateStr, formatDateBJ, getTodayBJ } from '../store/dateUtils.js';
 
@@ -131,7 +131,12 @@ function getHammerBlocks(dateStr) {
     const logs  = getAllLogs();
     const tasks = getJSON('tasks') || [];
     return logs
-        .filter((l) => l.target_date === dateStr && l.action_type === 'HAMMER' && l.duration_seconds > 0)
+        .filter((l) => (
+            l.target_date === dateStr
+            && l.action_type === 'HAMMER'
+            && l.duration_seconds > 0
+            && !isTaskDateDeleted(l.task_id, dateStr, logs)
+        ))
         .map((l) => {
             const task = tasks.find((t) => t.id === l.task_id);
             const endMs   = l.timestamp;

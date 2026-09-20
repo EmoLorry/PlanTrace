@@ -83,6 +83,10 @@ async function persistKey(key, value, remove = false) {
     writeQueues.set(key, next);
 }
 
+async function flushPendingWrites() {
+    await Promise.allSettled([...writeQueues.values()]);
+}
+
 export async function initFileStorage() {
     if (initPromise) return initPromise;
 
@@ -159,19 +163,10 @@ export function removeKey(key) {
 }
 
 /**
- * Export all data as a JSON file saved to backups/ via the Vite dev server.
+ * Export a full backup as a JSON file saved to backups/ via the Vite dev server.
  * Filename uses Beijing time (UTC+8).
  */
 export async function exportBackup() {
-    const payload = {
-        schemaVersion: 2,
-        storageMode,
-        dataPath,
-        diaryPath,
-        keys: { ...cache },
-        exportedAt: new Date().toISOString(),
-    };
-
     const now = new Date();
     const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
     const bjDate = new Date(utcMs + 8 * 60 * 60000);
@@ -179,9 +174,29 @@ export async function exportBackup() {
     const m = String(bjDate.getMonth() + 1).padStart(2, '0');
     const d = String(bjDate.getDate()).padStart(2, '0');
     const filename = `plantrace_backup_${y}-${m}-${d}.json`;
-    const jsonStr = JSON.stringify(payload, null, 2);
+    let backupPayload = {
+        schemaVersion: 3,
+        storageMode,
+        dataPath,
+        diaryPath,
+        keys: { ...cache },
+        diaries: [],
+        exportedAt: new Date().toISOString(),
+    };
 
     try {
+        await flushPendingWrites();
+        const snapshot = await requestJSON('/api/data/export');
+        backupPayload = {
+            schemaVersion: 3,
+            storageMode,
+            dataPath: snapshot.dataPath || dataPath,
+            diaryPath: snapshot.diaryPath || diaryPath,
+            keys: snapshot.keys || { ...cache },
+            diaries: Array.isArray(snapshot.diaries) ? snapshot.diaries : [],
+            exportedAt: snapshot.exportedAt || new Date().toISOString(),
+        };
+        const jsonStr = JSON.stringify(backupPayload, null, 2);
         const res = await fetch('/api/backup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -194,6 +209,7 @@ export async function exportBackup() {
             throw new Error(result.error);
         }
     } catch {
+        const jsonStr = JSON.stringify(backupPayload, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

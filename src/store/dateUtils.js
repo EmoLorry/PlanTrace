@@ -1,5 +1,6 @@
 // All date/time operations use Beijing Time (UTC+8)
 const BJ_OFFSET = 8 * 60; // minutes
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Get current Date adjusted to Beijing time perspective.
@@ -17,6 +18,64 @@ export function getNowBJ() {
  */
 export function getTodayBJ() {
     return formatDateBJ(getNowBJ());
+}
+
+/**
+ * Get Beijing date string from an absolute timestamp.
+ */
+export function getDateBJFromTimestamp(timestamp) {
+    const shifted = new Date(Number(timestamp) + BJ_OFFSET * 60000);
+    return shifted.toISOString().slice(0, 10);
+}
+
+/**
+ * Get the absolute timestamp for 00:00 at the start of a Beijing date.
+ */
+export function getStartOfDayMsBJ(dateStr) {
+    return Date.parse(`${dateStr}T00:00:00+08:00`);
+}
+
+/**
+ * Get the next Beijing date string.
+ */
+export function getNextDateBJ(dateStr) {
+    return getDateBJFromTimestamp(getStartOfDayMsBJ(dateStr) + MS_PER_DAY);
+}
+
+/**
+ * Get the next Beijing midnight after timestamp.
+ */
+export function getNextMidnightMsBJ(timestamp = Date.now()) {
+    return getStartOfDayMsBJ(getNextDateBJ(getDateBJFromTimestamp(timestamp)));
+}
+
+/**
+ * Split a real-time interval into Beijing-date segments.
+ */
+export function splitIntervalByBJDate(startMs, endMs) {
+    const start = Number(startMs);
+    const end = Number(endMs);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
+
+    const segments = [];
+    let cursor = start;
+    while (cursor < end) {
+        const date = getDateBJFromTimestamp(cursor);
+        const segmentEnd = Math.min(end, getNextMidnightMsBJ(cursor));
+        const durationSeconds = Math.floor((segmentEnd - cursor) / 1000);
+        if (durationSeconds > 0) {
+            segments.push({
+                date,
+                startMs: cursor,
+                endMs: cursor + durationSeconds * 1000,
+                durationSeconds,
+            });
+        }
+        cursor = segmentEnd;
+        if (segmentEnd === cursor && segmentEnd >= end) break;
+    }
+
+    return segments;
 }
 
 /**
@@ -137,19 +196,16 @@ export function shiftDate(dateStr, days) {
 }
 
 /**
- * Get milliseconds remaining until 23:59:59 BJ time today.
+ * Get milliseconds remaining until the next 00:00 BJ boundary.
  * Returns 0 if already past that time.
  */
 export function getMsUntilEndOfDayBJ() {
-    const now = getNowBJ();
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
-    const diff = endOfDay.getTime() - now.getTime();
-    return Math.max(0, diff);
+    return Math.max(0, getNextMidnightMsBJ() - Date.now());
 }
 
 /**
- * Check if current BJ time is >= 23:59:59
+ * Check if current BJ time is within the final second of the day.
  */
 export function isEndOfDayBJ() {
-    return getMsUntilEndOfDayBJ() <= 0;
+    return getMsUntilEndOfDayBJ() <= 1000;
 }

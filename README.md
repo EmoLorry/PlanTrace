@@ -4,7 +4,7 @@
 >
 > A beautiful local-first task manager with atomic timer, diary, and weekly schedule visualization.
 
-![version](https://img.shields.io/badge/版本-v1.5.0-blueviolet)
+![version](https://img.shields.io/badge/版本-v1.5.3-blueviolet)
 ![react](https://img.shields.io/badge/React-19-61dafb)
 ![vite](https://img.shields.io/badge/Vite-7-646cff)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
@@ -288,12 +288,13 @@ PlanTrace/
 ├── 任务 / 日志 / 专注记录 / 主题  →  项目 data/plantrace-data.json
 ├── 日记文件                    →  项目 data/diary/ 目录
 ├── 浏览器 LocalStorage          →  仅作为旧数据自动迁移来源
-└── 导出备份                    →  项目 backups/ 目录
+└── Backup Data 完整备份        →  项目 backups/ 目录
                                plantrace_backup_2026-09-19.json
 ```
 
 > [!IMPORTANT]
 > 更新代码时，`data/` 和 `backups/` **均不会被覆盖或删除**。
+> 左下角 `Backup Data` 会额外生成一份完整 JSON 备份，包含主数据和 `data/diary/` 日记内容。
 
 ---
 
