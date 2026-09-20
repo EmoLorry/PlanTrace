@@ -1,12 +1,21 @@
 {
-  "version": "1.4.1",
-  "releaseDate": "2026-09-19",
+  "version": "1.4.2",
+  "releaseDate": "2026-09-20",
   "releaseNotes": [
-    "优化新手指引卡片：加入真实 UI 缩略示意，展示任务输入框、任务行、Hammer、日期光点和右上角工具栏",
-    "明确说明左侧铅笔按钮用于完成今日任务，任务文字可双击改名，Hammer 用于记录投入",
-    "优化任务行按钮提示文案，悬浮时可直接看到完成、编辑、Hammer 和删除的操作含义"
+    "修复 Windows 启动时找不到 npm.cmd 导致 PlanTrace 无法启动的问题",
+    "启动脚本现在会在 Node.js/npm 缺失或依赖不完整时自动调用本地安装修复",
+    "手动更新脚本增加 Node.js 检查，缺失时会优先尝试通过 winget 安装 Node.js LTS"
   ],
   "history": [
+    {
+      "version": "1.4.2",
+      "releaseDate": "2026-09-20",
+      "releaseNotes": [
+        "修复 Windows 启动时找不到 npm.cmd 导致 PlanTrace 无法启动的问题",
+        "启动脚本现在会在 Node.js/npm 缺失或依赖不完整时自动调用本地安装修复",
+        "手动更新脚本增加 Node.js 检查，缺失时会优先尝试通过 winget 安装 Node.js LTS"
+      ]
+    },
     {
       "version": "1.4.1",
       "releaseDate": "2026-09-19",

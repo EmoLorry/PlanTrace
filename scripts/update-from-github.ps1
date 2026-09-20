@@ -139,7 +139,79 @@ function Copy-MergeDirectory {
     }
 }
 
+function Refresh-Path {
+    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:Path = "$machinePath;$userPath"
+}
+
+function Get-NodeVersion {
+    $node = Get-Command node.exe -ErrorAction SilentlyContinue
+    if (-not $node) { return $null }
+
+    $raw = (& $node.Source --version 2>$null)
+    if (-not $raw) { return $null }
+
+    try {
+        return [version]($raw.Trim().TrimStart('v').Split('-')[0])
+    }
+    catch {
+        return $null
+    }
+}
+
+function Test-NodeVersion {
+    $version = Get-NodeVersion
+    if (-not $version) { return $false }
+
+    if ($version.Major -eq 20 -and $version.Minor -ge 19) { return $true }
+    if ($version.Major -eq 22 -and $version.Minor -ge 12) { return $true }
+    if ($version.Major -gt 22) { return $true }
+    return $false
+}
+
+function Install-NodeLts {
+    $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
+    if ($winget) {
+        Write-Step 'Installing Node.js LTS with winget'
+        & $winget.Source install --id OpenJS.NodeJS.LTS -e --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -eq 0) {
+            Refresh-Path
+            return
+        }
+        Write-Host 'winget install did not finish cleanly. Opening the Node.js download page.' -ForegroundColor Yellow
+    }
+    else {
+        Write-Host 'winget was not found. Opening the Node.js download page.' -ForegroundColor Yellow
+    }
+
+    Start-Process 'https://nodejs.org/en/download'
+    throw 'Install Node.js 20.19+ or 22.12+, then run Update-PlanTrace-Windows.bat again.'
+}
+
+function Ensure-Node {
+    Write-Step 'Checking Node.js'
+    Refresh-Path
+
+    if (Test-NodeVersion) {
+        $version = Get-NodeVersion
+        Write-Host "Node.js $version found."
+        return
+    }
+
+    Install-NodeLts
+
+    if (-not (Test-NodeVersion)) {
+        throw 'Node.js was installed or updated, but the required version is still not available in this shell.'
+    }
+
+    $version = Get-NodeVersion
+    Write-Host "Node.js $version found."
+}
+
 function Get-NpmCommand {
+    Refresh-Path
+
     $npmCmd = Get-Command npm.cmd -ErrorAction SilentlyContinue
     if ($npmCmd) { return $npmCmd.Source }
     $npm = Get-Command npm -ErrorAction SilentlyContinue
@@ -252,6 +324,7 @@ try {
     }
 
     Write-Step 'Installing dependencies'
+    Ensure-Node
     $npm = Get-NpmCommand
     Push-Location $root
     try {
