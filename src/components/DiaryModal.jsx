@@ -113,20 +113,23 @@ export default function DiaryModal({ selectedDate, onClose }) {
 
     const saveTimerRef = useRef(null);
 
+    const initializeDiaryStorage = useCallback(async () => {
+        setFsState('loading');
+        try {
+            await ensureDiaryStorage();
+            const migration = await migrateLegacyDiaries({ requestPermission: false });
+            setMigrationInfo(migration);
+            setFsState('ready');
+        } catch (e) {
+            console.error('Diary storage init failed:', e);
+            setFsState('error');
+        }
+    }, []);
+
     // ── Prepare PlanTrace data/diary storage on mount ──
     useEffect(() => {
-        (async () => {
-            try {
-                await ensureDiaryStorage();
-                const migration = await migrateLegacyDiaries({ requestPermission: false });
-                setMigrationInfo(migration);
-                setFsState('ready');
-            } catch (e) {
-                console.error('Diary storage init failed:', e);
-                setFsState('error');
-            }
-        })();
-    }, []);
+        initializeDiaryStorage();
+    }, [initializeDiaryStorage]);
 
     // ── Load diary data when storage and date are ready ──
     useEffect(() => {
@@ -276,7 +279,12 @@ export default function DiaryModal({ selectedDate, onClose }) {
                     <div className="diary-state-msg">正在准备 PlanTrace/data/diary…</div>
                 )}
                 {fsState === 'error' && (
-                    <div className="diary-state-msg">日记数据文件夹初始化失败，请重启 PlanTrace 后再试。</div>
+                    <div className="diary-state-msg">
+                        <div>日记数据文件夹初始化失败。</div>
+                        <button className="diary-folder-btn diary-retry-btn" onClick={initializeDiaryStorage}>
+                            重新初始化
+                        </button>
+                    </div>
                 )}
                 {fsState === 'ready' && migrationInfo?.status === 'needs-permission' && (
                     <FolderBanner onPick={handleImportLegacyDir} />

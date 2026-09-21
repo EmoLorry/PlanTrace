@@ -1878,6 +1878,10 @@
   color: var(--color-text-muted);
 }
 
+.diary-retry-btn {
+  margin-top: 14px;
+}
+
 /* Folder banner */
 .diary-folder-banner {
   display: flex;

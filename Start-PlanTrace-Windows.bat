@@ -4,6 +4,10 @@ title PlanTrace
 cd /d "%~dp0"
 set "PROJECT_DIR=%cd%"
 
+if not exist "%~dp0data" mkdir "%~dp0data" >nul 2>nul
+if not exist "%~dp0data\diary" mkdir "%~dp0data\diary" >nul 2>nul
+if not exist "%~dp0backups" mkdir "%~dp0backups" >nul 2>nul
+
 call :RefreshPath
 call :FindNode
 if errorlevel 1 (

@@ -257,12 +257,57 @@ function Get-NpmCommand {
     throw 'npm was found but was not usable. Reinstall Node.js LTS, then run Update-PlanTrace-Windows.bat again.'
 }
 
+function Get-DesktopDirectories {
+    $candidates = @()
+
+    $dotNetDesktop = [Environment]::GetFolderPath('Desktop')
+    if ($dotNetDesktop) { $candidates += $dotNetDesktop }
+
+    try {
+        $shell = New-Object -ComObject WScript.Shell
+        $wshDesktop = $shell.SpecialFolders.Item('Desktop')
+        if ($wshDesktop) { $candidates += $wshDesktop }
+    }
+    catch {
+        # Some managed Windows installs restrict WScript; keep probing other known desktop paths.
+    }
+
+    if ($env:USERPROFILE) {
+        $candidates += Join-Path $env:USERPROFILE 'Desktop'
+        $localizedDesktop = Join-Path $env:USERPROFILE '桌面'
+        if (Test-Path -LiteralPath $localizedDesktop) { $candidates += $localizedDesktop }
+    }
+
+    foreach ($root in @($env:OneDrive, $env:OneDriveConsumer, $env:OneDriveCommercial)) {
+        if (-not $root) { continue }
+        if (Test-Path -LiteralPath $root) {
+            $candidates += Join-Path $root 'Desktop'
+            $localizedDesktop = Join-Path $root '桌面'
+            if (Test-Path -LiteralPath $localizedDesktop) { $candidates += $localizedDesktop }
+        }
+    }
+
+    $unique = @()
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        try {
+            $fullPath = [System.IO.Path]::GetFullPath($candidate)
+        }
+        catch {
+            $fullPath = $candidate
+        }
+        if ($unique -notcontains $fullPath) { $unique += $fullPath }
+    }
+
+    return $unique
+}
+
 function New-PlanTraceShortcut {
     param([string]$Root)
 
     Write-Step 'Refreshing desktop shortcut'
-    $desktop = [Environment]::GetFolderPath('Desktop')
-    if (-not $desktop) {
+    $desktopDirs = @(Get-DesktopDirectories)
+    if (-not $desktopDirs.Count) {
         Write-Host 'Desktop path was not found; skipping shortcut.' -ForegroundColor Yellow
         return
     }
@@ -271,29 +316,51 @@ function New-PlanTraceShortcut {
     if (-not (Test-Path -LiteralPath $target)) {
         $target = Join-Path $Root 'start.bat'
     }
-    $shortcutPath = Join-Path $desktop 'PlanTrace.lnk'
     $iconPath = Join-Path $Root 'public\plantrace.ico'
+    $created = 0
 
-    try {
-        if (Test-Path -LiteralPath $shortcutPath) {
-            Remove-Item -LiteralPath $shortcutPath -Force -ErrorAction SilentlyContinue
+    foreach ($desktop in $desktopDirs) {
+        try {
+            if (-not (Test-Path -LiteralPath $desktop)) {
+                New-Item -ItemType Directory -Force -Path $desktop | Out-Null
+            }
+
+            $shortcutPath = Join-Path $desktop 'PlanTrace.lnk'
+            if (Test-Path -LiteralPath $shortcutPath) {
+                Remove-Item -LiteralPath $shortcutPath -Force -ErrorAction SilentlyContinue
+            }
+
+            $shell = New-Object -ComObject WScript.Shell
+            $shortcut = $shell.CreateShortcut($shortcutPath)
+            $shortcut.TargetPath = $target
+            $shortcut.WorkingDirectory = $Root
+            $shortcut.Description = 'Start PlanTrace'
+
+            if (Test-Path -LiteralPath $iconPath) {
+                $shortcut.IconLocation = "$iconPath,0"
+            }
+
+            $shortcut.Save()
+            $created += 1
+            Write-Host "Shortcut refreshed: $shortcutPath"
         }
-
-        $shell = New-Object -ComObject WScript.Shell
-        $shortcut = $shell.CreateShortcut($shortcutPath)
-        $shortcut.TargetPath = $target
-        $shortcut.WorkingDirectory = $Root
-        $shortcut.Description = 'Start PlanTrace'
-
-        if (Test-Path -LiteralPath $iconPath) {
-            $shortcut.IconLocation = "$iconPath,0"
+        catch {
+            Write-Host "Shortcut refresh failed at ${desktop}: $($_.Exception.Message)" -ForegroundColor Yellow
         }
-
-        $shortcut.Save()
-        Write-Host "Shortcut refreshed: $shortcutPath"
     }
-    catch {
-        Write-Host "Shortcut refresh skipped: $($_.Exception.Message)" -ForegroundColor Yellow
+
+    if ($created -eq 0) {
+        Write-Host 'No desktop shortcut could be refreshed. PlanTrace is still installed; use Start-PlanTrace-Windows.bat in the install folder.' -ForegroundColor Yellow
+    }
+}
+
+function Initialize-DataDirectories {
+    param([string]$Root)
+
+    Write-Step 'Preparing user data folders'
+    foreach ($relativePath in @('data', 'data\diary', 'backups')) {
+        $targetPath = Join-Path $Root $relativePath
+        New-Item -ItemType Directory -Force -Path $targetPath | Out-Null
     }
 }
 
@@ -328,6 +395,7 @@ try {
     if (-not (Test-NewerVersion -Remote $remoteVersion -Local $localVersion)) {
         Write-Host ''
         Write-Host 'PlanTrace is already up to date.' -ForegroundColor Green
+        Initialize-DataDirectories -Root $root
         New-PlanTraceShortcut -Root $root
         return
     }
@@ -419,6 +487,7 @@ try {
     Write-Host ''
     Write-Host "PlanTrace updated to v$remoteVersion." -ForegroundColor Green
     Write-Host 'User data in data/, backups/, and legacy browser localStorage was not changed.'
+    Initialize-DataDirectories -Root $root
     New-PlanTraceShortcut -Root $root
 
     if (-not $NoLaunch) {

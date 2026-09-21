@@ -124,6 +124,7 @@ export async function pickDirectory() {
 
 async function requestJSON(url, options = {}) {
     const res = await fetch(url, {
+        cache: 'no-store',
         ...options,
         headers: {
             'Content-Type': 'application/json',
@@ -137,8 +138,39 @@ async function requestJSON(url, options = {}) {
     return payload;
 }
 
+function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function requestJSONWithRetry(url, options = {}, retries = 4) {
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+        try {
+            return await requestJSON(url, options);
+        } catch (err) {
+            lastError = err;
+            if (attempt >= retries) break;
+            await wait(220 * (attempt + 1));
+        }
+    }
+    throw lastError || new Error(`Request failed: ${url}`);
+}
+
 export async function ensureDiaryStorage() {
-    return requestJSON('/api/data/info');
+    try {
+        return await requestJSONWithRetry('/api/data/info');
+    } catch (infoError) {
+        try {
+            const snapshot = await requestJSONWithRetry('/api/data/snapshot', {}, 2);
+            return {
+                success: true,
+                dataPath: snapshot.dataPath || '',
+                diaryPath: snapshot.diaryPath || '',
+            };
+        } catch {
+            throw infoError;
+        }
+    }
 }
 
 /**
