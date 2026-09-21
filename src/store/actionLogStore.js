@@ -63,7 +63,7 @@ export function getHammerCount(taskId, dateStr) {
 }
 
 /**
- * Count HAMMER logs for a task on today (BJ time)
+ * Count HAMMER logs for a task on today in the app timezone.
  */
 export function getHammerCountToday(taskId) {
     return getHammerCount(taskId, getTodayBJ());

@@ -87,6 +87,10 @@ async function flushPendingWrites() {
     await Promise.allSettled([...writeQueues.values()]);
 }
 
+export async function flushStorageWrites() {
+    await flushPendingWrites();
+}
+
 export async function initFileStorage() {
     if (initPromise) return initPromise;
 
@@ -194,16 +198,28 @@ export async function createBackupPayload() {
 
 /**
  * Export a full backup as a JSON file saved to backups/ via the Vite dev server.
- * Filename uses Beijing time (UTC+8).
+ * Filename uses the configured app timezone.
  */
 export async function exportBackup() {
-    const now = new Date();
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-    const bjDate = new Date(utcMs + 8 * 60 * 60000);
-    const y = bjDate.getFullYear();
-    const m = String(bjDate.getMonth() + 1).padStart(2, '0');
-    const d = String(bjDate.getDate()).padStart(2, '0');
-    const filename = `plantrace_backup_${y}-${m}-${d}.json`;
+    const settings = getJSON('settings') || {};
+    const timezone = settings.timezone || 'Asia/Shanghai';
+    const options = {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    };
+    let dateParts;
+    try {
+        dateParts = new Intl.DateTimeFormat('en-CA', options).formatToParts(new Date());
+    } catch {
+        dateParts = new Intl.DateTimeFormat('en-CA', {
+            ...options,
+            timeZone: 'Asia/Shanghai',
+        }).formatToParts(new Date());
+    }
+    const values = Object.fromEntries(dateParts.map((part) => [part.type, part.value]));
+    const filename = `plantrace_backup_${values.year}-${values.month}-${values.day}.json`;
     const backupPayload = await createBackupPayload();
 
     try {

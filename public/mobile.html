@@ -295,7 +295,9 @@
     const ACTIVE_HAMMER_KEY = 'plantrace_mobile_active_hammers';
     const ACTIVE_ATOMIC_KEY = 'plantrace_mobile_active_atomic';
     const THEME_KEY = 'plantrace_mobile_theme';
-    const BJ_OFFSET = 8 * 60 * 60000;
+    const DEFAULT_TIMEZONE = 'Asia/Shanghai';
+    const DEFAULT_LANGUAGE = 'zh-CN';
+    let activeTimezone = DEFAULT_TIMEZONE;
     const MOBILE_THEMES = [
       {
         id: 'morning',
@@ -536,7 +538,13 @@
         type: 'plantrace-mobile-native',
         appVersion: 'mobile',
         createdAt: new Date().toISOString(),
-        keys: { tasks: [], action_logs: [], atomic_sessions: [], theme: currentThemeId },
+        keys: {
+          tasks: [],
+          action_logs: [],
+          atomic_sessions: [],
+          theme: currentThemeId,
+          settings: normalizeSettings(),
+        },
         diaries: [],
       },
     };
@@ -546,14 +554,110 @@
     let scanning = false;
     let scanState = null;
 
+    function pad2(value) { return String(value).padStart(2, '0'); }
+    function isValidTimezone(timezone) {
+      if (typeof timezone !== 'string' || !timezone.trim()) return false;
+      if (timezone === DEFAULT_TIMEZONE || timezone === 'UTC') return true;
+      try {
+        if (typeof Intl === 'undefined') return false;
+        new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(new Date());
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    function getSystemTimezone() {
+      try {
+        if (typeof Intl === 'undefined') return DEFAULT_TIMEZONE;
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        return isValidTimezone(timezone) ? timezone : DEFAULT_TIMEZONE;
+      } catch {
+        return DEFAULT_TIMEZONE;
+      }
+    }
+    function normalizeSettings(value) {
+      const source = value && typeof value === 'object' ? value : {};
+      return {
+        schemaVersion: 1,
+        language: source.language || DEFAULT_LANGUAGE,
+        timezone: isValidTimezone(source.timezone) ? source.timezone : DEFAULT_TIMEZONE,
+        timezonePolicy: source.timezonePolicy || 'fixed-app-timezone',
+        legacyTimezone: source.legacyTimezone || DEFAULT_TIMEZONE,
+        systemTimezoneAtInit: source.systemTimezoneAtInit || getSystemTimezone(),
+        lastSeenSystemTimezone: getSystemTimezone(),
+        initializedAt: source.initializedAt || Date.now(),
+        updatedAt: source.updatedAt || Date.now(),
+      };
+    }
+    function datePartsInZone(ms, timezone = activeTimezone) {
+      if (timezone === 'UTC') {
+        const date = new Date(ms);
+        return {
+          year: date.getUTCFullYear(),
+          month: date.getUTCMonth() + 1,
+          day: date.getUTCDate(),
+          hour: date.getUTCHours(),
+          minute: date.getUTCMinutes(),
+          second: date.getUTCSeconds(),
+        };
+      }
+      try {
+        if (typeof Intl === 'undefined') throw new Error('Intl unavailable');
+        const parts = new Intl.DateTimeFormat('en-CA', {
+          timeZone: timezone,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hourCycle: 'h23',
+        }).formatToParts(new Date(ms));
+        const map = {};
+        parts.forEach((part) => { if (part.type !== 'literal') map[part.type] = part.value; });
+        return {
+          year: Number(map.year),
+          month: Number(map.month),
+          day: Number(map.day),
+          hour: Number(map.hour),
+          minute: Number(map.minute),
+          second: Number(map.second),
+        };
+      } catch {
+        const date = new Date(ms + 8 * 60 * 60 * 1000);
+        return {
+          year: date.getUTCFullYear(),
+          month: date.getUTCMonth() + 1,
+          day: date.getUTCDate(),
+          hour: date.getUTCHours(),
+          minute: date.getUTCMinutes(),
+          second: date.getUTCSeconds(),
+        };
+      }
+    }
+    function timezoneOffsetMs(timezone, ms) {
+      const parts = datePartsInZone(ms, timezone);
+      const asUTC = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+      return asUTC - Math.floor(ms / 1000) * 1000;
+    }
     function nowBJDate(ms = Date.now()) {
-      return new Date(ms + BJ_OFFSET).toISOString().slice(0, 10);
+      const parts = datePartsInZone(ms, activeTimezone);
+      return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
     }
     function todayBJ() { return nowBJDate(); }
-    function startOfDayBJ(dateStr) { return Date.parse(`${dateStr}T00:00:00+08:00`); }
-    function nextDateBJ(dateStr) { return nowBJDate(startOfDayBJ(dateStr) + 86400000); }
+    function startOfDayBJ(dateStr) {
+      const utcMidnight = Date.parse(`${dateStr}T00:00:00.000Z`);
+      let candidate = utcMidnight - timezoneOffsetMs(activeTimezone, utcMidnight);
+      candidate = utcMidnight - timezoneOffsetMs(activeTimezone, candidate);
+      return candidate;
+    }
+    function nextDateBJ(dateStr) { return shiftDate(dateStr, 1); }
     function nextMidnightBJ(ms) { return startOfDayBJ(nextDateBJ(nowBJDate(ms))); }
-    function shiftDate(dateStr, days) { return nowBJDate(startOfDayBJ(dateStr) + days * 86400000); }
+    function shiftDate(dateStr, days) {
+      const [year, month, day] = String(dateStr).split('-').map(Number);
+      const shifted = new Date(Date.UTC(year, month - 1, day + Number(days)));
+      return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-${pad2(shifted.getUTCDate())}`;
+    }
     function id(prefix) { return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`; }
     function tasks() { return Array.isArray(state.data.keys.tasks) ? state.data.keys.tasks : []; }
     function logs() { return Array.isArray(state.data.keys.action_logs) ? state.data.keys.action_logs : []; }
@@ -591,6 +695,8 @@
     function save() {
       state.data.keys = state.data.keys && typeof state.data.keys === 'object' ? state.data.keys : {};
       state.data.keys.theme = currentThemeId;
+      state.data.keys.settings = normalizeSettings(state.data.keys.settings);
+      activeTimezone = state.data.keys.settings.timezone;
       localStorage.setItem(STORE_KEY, JSON.stringify(state.data));
     }
     function load() {
@@ -614,6 +720,8 @@
       next.keys.action_logs = Array.isArray(next.keys.action_logs) ? next.keys.action_logs : [];
       next.keys.atomic_sessions = Array.isArray(next.keys.atomic_sessions) ? next.keys.atomic_sessions : [];
       next.keys.theme = typeof next.keys.theme === 'string' ? next.keys.theme : currentThemeId;
+      next.keys.settings = normalizeSettings(next.keys.settings);
+      activeTimezone = next.keys.settings.timezone;
       return next;
     }
     function itemModified(item) {
@@ -702,6 +810,12 @@
     }
     function mergeDataPack(incomingRaw) {
       const incoming = normalizePack(incomingRaw);
+      const hadLocalData = (
+        tasks().length > 0
+        || logs().length > 0
+        || sessions().length > 0
+        || diaries().some((entry) => diaryHasContent(entry?.diary))
+      );
       const taskMerge = mergeById(state.data.keys.tasks, incoming.keys.tasks, 'id');
       const logMerge = mergeById(state.data.keys.action_logs, incoming.keys.action_logs, 'log_id');
       const atomicMerge = mergeById(state.data.keys.atomic_sessions, incoming.keys.atomic_sessions, 'session_id');
@@ -709,6 +823,10 @@
       state.data.keys.tasks = taskMerge.items;
       state.data.keys.action_logs = logMerge.items;
       state.data.keys.atomic_sessions = atomicMerge.items;
+      if (!hadLocalData && incoming.keys.settings) {
+        state.data.keys.settings = normalizeSettings(incoming.keys.settings);
+        activeTimezone = state.data.keys.settings.timezone;
+      }
 
       const diaryMap = new Map();
       diaries().forEach((entry) => {
@@ -770,6 +888,7 @@
         const segmentEnd = Math.min(end, nextMidnightBJ(cursor));
         const seconds = Math.floor((segmentEnd - cursor) / 1000);
         if (seconds > 0) segments.push({ date, startMs: cursor, endMs: cursor + seconds * 1000, seconds });
+        if (segmentEnd <= cursor) break;
         cursor = segmentEnd;
       }
       return segments;

@@ -119,7 +119,7 @@ export default function MobileTransferModal({ onClose }) {
                                         <div>编码：{Math.round(transfer.encodedLength / 1024)} KB</div>
                                         <div>压缩：{transfer.compressed ? 'gzip' : 'raw'}</div>
                                     </div>
-                                    <p className="text-slate-400">手机端导出的 JSON 可在这里导回电脑端，按 id 合并，不整库覆盖。</p>
+                                    <p className="text-slate-400">手机端或微信小程序导出的 JSON 可在这里导回电脑端，按 id 合并，不整库覆盖。</p>
                                 </div>
                             </div>
 
@@ -141,7 +141,7 @@ export default function MobileTransferModal({ onClose }) {
                                         disabled={importing}
                                     >
                                         <Upload size={14} />
-                                        {importing ? '合并中' : '合并手机导出 JSON'}
+                                        {importing ? '合并中' : '合并手机/小程序 JSON'}
                                     </button>
                                     <button
                                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-medium"

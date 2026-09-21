@@ -213,7 +213,7 @@ SOURCE_ROOT="$(find "$EXTRACT_DIR" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 [[ -n "$SOURCE_ROOT" && -d "$SOURCE_ROOT/src" ]] || plantrace_fail "downloaded archive does not look like a PlanTrace project."
 
 plantrace_step "Applying update"
-for dir in src public; do
+for dir in src public Wechat_APP; do
   if [[ -d "$SOURCE_ROOT/$dir" ]]; then
     copy_replace_dir "$SOURCE_ROOT/$dir" "$PROJECT_DIR/$dir"
     printf 'Updated %s/\n' "$dir"

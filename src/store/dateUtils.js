@@ -1,58 +1,139 @@
-// All date/time operations use Beijing Time (UTC+8)
-const BJ_OFFSET = 8 * 60; // minutes
+import { getAppTimezone } from './settingsStore.js';
+
+export const LEGACY_BEIJING_TIMEZONE = 'Asia/Shanghai';
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const formatterCache = new Map();
 
-/**
- * Get current Date adjusted to Beijing time perspective.
- * Returns a standard Date object, but we extract BJ-local values from it.
- */
-export function getNowBJ() {
-    const now = new Date();
-    // Get UTC time, then add 8 hours
-    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
-    return new Date(utcMs + BJ_OFFSET * 60000);
+function getFormatter(timeZone, options) {
+    const key = `${timeZone}:${JSON.stringify(options)}`;
+    if (!formatterCache.has(key)) {
+        formatterCache.set(key, new Intl.DateTimeFormat('en-CA', {
+            timeZone,
+            ...options,
+        }));
+    }
+    return formatterCache.get(key);
 }
 
-/**
- * Get today's date string in Beijing time: "YYYY-MM-DD"
- */
-export function getTodayBJ() {
-    return formatDateBJ(getNowBJ());
+function pad2(value) {
+    return String(value).padStart(2, '0');
 }
 
-/**
- * Get Beijing date string from an absolute timestamp.
- */
-export function getDateBJFromTimestamp(timestamp) {
-    const shifted = new Date(Number(timestamp) + BJ_OFFSET * 60000);
-    return shifted.toISOString().slice(0, 10);
+function assertDateStr(dateStr) {
+    const match = DATE_RE.exec(String(dateStr));
+    if (!match) throw new Error(`Invalid date string: ${dateStr}`);
+    return {
+        year: Number(match[1]),
+        month: Number(match[2]),
+        day: Number(match[3]),
+    };
 }
 
-/**
- * Get the absolute timestamp for 00:00 at the start of a Beijing date.
- */
-export function getStartOfDayMsBJ(dateStr) {
-    return Date.parse(`${dateStr}T00:00:00+08:00`);
+function getDateTimePartsInZone(timestamp = Date.now(), timeZone = getAppTimezone()) {
+    const formatter = getFormatter(timeZone, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23',
+    });
+    const parts = formatter.formatToParts(new Date(Number(timestamp)));
+    const values = {};
+    for (const part of parts) {
+        if (part.type !== 'literal') values[part.type] = part.value;
+    }
+    return {
+        year: Number(values.year),
+        month: Number(values.month),
+        day: Number(values.day),
+        hour: Number(values.hour),
+        minute: Number(values.minute),
+        second: Number(values.second),
+    };
 }
 
-/**
- * Get the next Beijing date string.
- */
-export function getNextDateBJ(dateStr) {
-    return getDateBJFromTimestamp(getStartOfDayMsBJ(dateStr) + MS_PER_DAY);
+function getTimezoneOffsetMs(timeZone, timestamp = Date.now()) {
+    const parts = getDateTimePartsInZone(timestamp, timeZone);
+    const asUTC = Date.UTC(
+        parts.year,
+        parts.month - 1,
+        parts.day,
+        parts.hour,
+        parts.minute,
+        parts.second,
+    );
+    return asUTC - Math.floor(Number(timestamp) / 1000) * 1000;
 }
 
-/**
- * Get the next Beijing midnight after timestamp.
- */
-export function getNextMidnightMsBJ(timestamp = Date.now()) {
-    return getStartOfDayMsBJ(getNextDateBJ(getDateBJFromTimestamp(timestamp)));
+function datePartsToString({ year, month, day }) {
+    return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
-/**
- * Split a real-time interval into Beijing-date segments.
- */
-export function splitIntervalByBJDate(startMs, endMs) {
+function shiftDateString(dateStr, days) {
+    const { year, month, day } = assertDateStr(dateStr);
+    const shifted = new Date(Date.UTC(year, month - 1, day + Number(days)));
+    return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-${pad2(shifted.getUTCDate())}`;
+}
+
+export function getAppDateTimeParts(timestamp = Date.now(), timeZone = getAppTimezone()) {
+    return getDateTimePartsInZone(timestamp, timeZone);
+}
+
+export function getAppDateFromTimestamp(timestamp = Date.now(), timeZone = getAppTimezone()) {
+    return datePartsToString(getDateTimePartsInZone(timestamp, timeZone));
+}
+
+export function getTodayInAppZone(timeZone = getAppTimezone()) {
+    return getAppDateFromTimestamp(Date.now(), timeZone);
+}
+
+export function getStartOfDayMsInZone(dateStr, timeZone = getAppTimezone()) {
+    assertDateStr(dateStr);
+    const utcMidnight = Date.parse(`${dateStr}T00:00:00.000Z`);
+    let candidate = utcMidnight - getTimezoneOffsetMs(timeZone, utcMidnight);
+
+    // DST changes can alter the offset at local midnight, so resolve twice.
+    candidate = utcMidnight - getTimezoneOffsetMs(timeZone, candidate);
+
+    if (getAppDateFromTimestamp(candidate, timeZone) === dateStr) {
+        return candidate;
+    }
+
+    // Extremely rare zones can have midnight transitions. Search nearby hours
+    // for the first instant that belongs to the requested calendar date.
+    for (let offsetHours = -24; offsetHours <= 24; offsetHours += 1) {
+        const probe = candidate + offsetHours * 60 * 60 * 1000;
+        if (getAppDateFromTimestamp(probe, timeZone) === dateStr) {
+            let start = probe;
+            while (getAppDateFromTimestamp(start - 60 * 1000, timeZone) === dateStr) {
+                start -= 60 * 1000;
+            }
+            return start;
+        }
+    }
+
+    return candidate;
+}
+
+export function getStartOfDayMsInAppZone(dateStr) {
+    return getStartOfDayMsInZone(dateStr, getAppTimezone());
+}
+
+export function getNextDateInAppZone(dateStr) {
+    return shiftDateString(dateStr, 1);
+}
+
+export function getNextMidnightMsInAppZone(timestamp = Date.now()) {
+    const timeZone = getAppTimezone();
+    const date = getAppDateFromTimestamp(timestamp, timeZone);
+    return getStartOfDayMsInZone(shiftDateString(date, 1), timeZone);
+}
+
+export function splitIntervalByAppDate(startMs, endMs) {
     const start = Number(startMs);
     const end = Number(endMs);
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return [];
@@ -60,8 +141,8 @@ export function splitIntervalByBJDate(startMs, endMs) {
     const segments = [];
     let cursor = start;
     while (cursor < end) {
-        const date = getDateBJFromTimestamp(cursor);
-        const segmentEnd = Math.min(end, getNextMidnightMsBJ(cursor));
+        const date = getAppDateFromTimestamp(cursor);
+        const segmentEnd = Math.min(end, getNextMidnightMsInAppZone(cursor));
         const durationSeconds = Math.floor((segmentEnd - cursor) / 1000);
         if (durationSeconds > 0) {
             segments.push({
@@ -71,89 +152,56 @@ export function splitIntervalByBJDate(startMs, endMs) {
                 durationSeconds,
             });
         }
+        if (segmentEnd <= cursor) break;
         cursor = segmentEnd;
-        if (segmentEnd === cursor && segmentEnd >= end) break;
     }
 
     return segments;
 }
 
-/**
- * Format a BJ-adjusted Date to "YYYY-MM-DD"
- */
-export function formatDateBJ(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+export function formatDateForApp(dateLike) {
+    if (typeof dateLike === 'string') return dateLike.slice(0, 10);
+    const date = dateLike instanceof Date ? dateLike : new Date(dateLike);
+    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
-/**
- * Format timestamp (ms) to BJ time string "HH:MM"
- */
-export function formatTimeBJ(timestamp) {
-    const date = new Date(timestamp);
-    const utcMs = date.getTime() + date.getTimezoneOffset() * 60000;
-    const bjDate = new Date(utcMs + BJ_OFFSET * 60000);
-    const h = String(bjDate.getHours()).padStart(2, '0');
-    const min = String(bjDate.getMinutes()).padStart(2, '0');
-    return `${h}:${min}`;
+export function formatTimeInAppZone(timestamp, timeZone = getAppTimezone()) {
+    const parts = getDateTimePartsInZone(timestamp, timeZone);
+    return `${pad2(parts.hour)}:${pad2(parts.minute)}`;
 }
 
-/**
- * Get array of past N days' date strings (not including today) in BJ time
- */
-export function getPastDaysBJ(n = 7) {
-    const today = getNowBJ();
+export function getPastDaysInAppZone(n = 7) {
+    const today = getTodayInAppZone();
     const dates = [];
-    for (let i = n; i >= 1; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        dates.push(formatDateBJ(d));
+    for (let i = Number(n); i >= 1; i -= 1) {
+        dates.push(shiftDateString(today, -i));
     }
     return dates;
 }
 
-/**
- * Get array of date strings: pastDays before + today + futureDays after
- */
-export function getDateRangeBJ(pastDays = 7, futureDays = 6) {
-    const today = getNowBJ();
+export function getDateRangeInAppZone(pastDays = 7, futureDays = 6) {
+    const today = getTodayInAppZone();
     const dates = [];
-    for (let i = pastDays; i >= 1; i--) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        dates.push(formatDateBJ(d));
+    for (let i = Number(pastDays); i >= 1; i -= 1) {
+        dates.push(shiftDateString(today, -i));
     }
-    dates.push(formatDateBJ(today)); // today
-    for (let i = 1; i <= futureDays; i++) {
-        const d = new Date(today);
-        d.setDate(d.getDate() + i);
-        dates.push(formatDateBJ(d));
+    dates.push(today);
+    for (let i = 1; i <= Number(futureDays); i += 1) {
+        dates.push(shiftDateString(today, i));
     }
     return dates;
 }
 
-/**
- * Parse "YYYY-MM-DD" into a Date (treated as BJ local) 
- */
 export function parseDateStr(dateStr) {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    return new Date(y, m - 1, d);
+    const { year, month, day } = assertDateStr(dateStr);
+    return new Date(year, month - 1, day);
 }
 
-/**
- * Get day-of-week name from date string
- */
 export function getDayName(dateStr) {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const d = parseDateStr(dateStr);
-    return days[d.getDay()];
+    return days[parseDateStr(dateStr).getDay()];
 }
 
-/**
- * Get full display format "Mar 3, 2026 · Tuesday"
- */
 export function getFullDateDisplay(dateStr) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -163,49 +211,83 @@ export function getFullDateDisplay(dateStr) {
     return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${daysFull[d.getDay()]}`;
 }
 
-/**
- * Check if dateStr is today (BJ time)
- */
 export function isToday(dateStr) {
-    return dateStr === getTodayBJ();
+    return dateStr === getTodayInAppZone();
 }
 
-/**
- * Check if dateStr is in the past relative to today (BJ time)
- */
 export function isPast(dateStr) {
-    return dateStr < getTodayBJ();
+    return dateStr < getTodayInAppZone();
 }
 
-/**
- * Generate a unique ID
- */
 export function generateId(prefix = 'id') {
     const ts = Date.now();
     const rand = Math.random().toString(36).substring(2, 8);
     return `${prefix}_${ts}_${rand}`;
 }
 
-/**
- * Shift a date range by a number of days
- */
 export function shiftDate(dateStr, days) {
-    const d = parseDateStr(dateStr);
-    d.setDate(d.getDate() + days);
-    return formatDateBJ(d);
+    return shiftDateString(dateStr, days);
 }
 
-/**
- * Get milliseconds remaining until the next 00:00 BJ boundary.
- * Returns 0 if already past that time.
- */
+export function getMsUntilEndOfDayInAppZone() {
+    return Math.max(0, getNextMidnightMsInAppZone() - Date.now());
+}
+
+export function isEndOfDayInAppZone() {
+    return getMsUntilEndOfDayInAppZone() <= 1000;
+}
+
+// Compatibility layer: old names are kept so legacy modules and data remain
+// stable. These now mean "current app timezone"; for legacy users that timezone
+// is initialized to Asia/Shanghai.
+export function getNowBJ() {
+    return new Date();
+}
+
+export function getTodayBJ() {
+    return getTodayInAppZone();
+}
+
+export function getDateBJFromTimestamp(timestamp) {
+    return getAppDateFromTimestamp(timestamp);
+}
+
+export function getStartOfDayMsBJ(dateStr) {
+    return getStartOfDayMsInAppZone(dateStr);
+}
+
+export function getNextDateBJ(dateStr) {
+    return getNextDateInAppZone(dateStr);
+}
+
+export function getNextMidnightMsBJ(timestamp = Date.now()) {
+    return getNextMidnightMsInAppZone(timestamp);
+}
+
+export function splitIntervalByBJDate(startMs, endMs) {
+    return splitIntervalByAppDate(startMs, endMs);
+}
+
+export function formatDateBJ(date) {
+    return formatDateForApp(date);
+}
+
+export function formatTimeBJ(timestamp) {
+    return formatTimeInAppZone(timestamp);
+}
+
+export function getPastDaysBJ(n = 7) {
+    return getPastDaysInAppZone(n);
+}
+
+export function getDateRangeBJ(pastDays = 7, futureDays = 6) {
+    return getDateRangeInAppZone(pastDays, futureDays);
+}
+
 export function getMsUntilEndOfDayBJ() {
-    return Math.max(0, getNextMidnightMsBJ() - Date.now());
+    return getMsUntilEndOfDayInAppZone();
 }
 
-/**
- * Check if current BJ time is within the final second of the day.
- */
 export function isEndOfDayBJ() {
-    return getMsUntilEndOfDayBJ() <= 1000;
+    return isEndOfDayInAppZone();
 }

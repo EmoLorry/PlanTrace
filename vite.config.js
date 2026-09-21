@@ -896,7 +896,7 @@ function updatePlugin() {
           send({ type: 'step', step: 3, message: '正在应用更新（不会覆盖用户数据）...' });
 
           // Directories to replace entirely
-          const DIRS = ['src', 'public'];
+          const DIRS = ['src', 'public', 'Wechat_APP'];
           for (const dir of DIRS) {
             const src = path.join(sourceRoot, dir);
             const dest = path.join(projectDir, dir);

@@ -4,7 +4,7 @@
 >
 > A beautiful local-first task manager with atomic timer, diary, and weekly schedule visualization.
 
-![version](https://img.shields.io/badge/版本-v1.7.4-blueviolet)
+![version](https://img.shields.io/badge/版本-v1.10.0-blueviolet)
 ![react](https://img.shields.io/badge/React-19-61dafb)
 ![vite](https://img.shields.io/badge/Vite-7-646cff)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
@@ -30,7 +30,7 @@
 ```
 今日任务面板
 ├── ➕ 添加任务          任意日期可新建待办
-├── ✅ 完成任务          仅限北京时间当日操作
+├── ✅ 完成任务          仅限应用时区当日操作
 ├── 🔨 Hammer 打卡       记录投入精力（不完成），每天无限次
 ├── ✏️ 编辑任务名称      双击行内编辑
 ├── 🗑️ 删除任务
@@ -83,6 +83,19 @@
 ### 🧭 新手指引
 
 首次启动自动展示轻量引导，帮助新用户快速理解任务、Hammer、原子时钟、日期光点、日记、周视图和 TraceStar。引导卡片会展示实际 UI 的缩略示意，右上角 `?` 图标可随时重新打开。
+
+### 微信小程序端
+
+`Wechat_APP/` 是独立微信小程序工程，可用微信开发者工具直接打开。小程序数据保存在微信本地，并通过 `plantrace-mobile-pack` JSON 与电脑端 `Mobile Sync` 双向合并。
+
+```
+小程序五个主 Tab
+├── 今日：任务、完成、改名、删除、Hammer、Atomic Timer
+├── 周程：Hammer / Atomic 双模式周日程，按应用时区重新分桶
+├── 日记：主日记 + 碎碎念
+├── 星图：移动端星图统计与最近 Hammer
+└── 我的：主题、时区、语言、新手指引、更新说明、JSON 导入导出
+```
 
 ### 🔔 版本更新
 
@@ -211,7 +224,7 @@ macOS 双击桌面 **PlanTrace.app**，也可以使用备用的 **PlanTrace.comm
 ```
 
 > [!NOTE]
-> 所有日期和时间逻辑强制使用 **北京时间 (UTC+8)**。
+> 日期和时间逻辑使用 **应用时区**。老用户首次升级会继续使用北京时间，可在右上角设置中修改时区；真实时间戳保持不变。
 
 ---
 
@@ -231,6 +244,7 @@ PlanTrace/
 │   ├── plantrace-data.json      # 任务 / 日志 / 原子钟 / 主题等应用数据
 │   └── diary/                   # 每日主日记 + 碎碎念 JSON 文件
 ├── backups/                    # 导出的 JSON 备份（自动创建）
+├── Wechat_APP/                 # 微信小程序本地版（微信本地存储 + JSON 双向合并）
 ├── Install-PlanTrace-From-GitHub-Windows.bat # Windows 一键安装
 ├── Install-PlanTrace-From-GitHub-macOS.command # macOS 一键安装
 ├── Update-PlanTrace-Windows.bat        # Windows 一键更新
@@ -242,7 +256,8 @@ PlanTrace/
     ├── App.jsx                 # 根组件 & 状态管理
     ├── index.css               # 设计系统（毛玻璃、渐变、动画）
     ├── store/
-    │   ├── dateUtils.js        # 北京时间工具函数
+    │   ├── dateUtils.js        # 应用时区日期工具函数
+    │   ├── settingsStore.js    # 语言 / 时区等全局偏好
     │   ├── storage.js          # data/ 文件存储 + 旧 LocalStorage 迁移 + 导出备份
     │   ├── taskStore.js        # 任务 CRUD（每次操作追加 ActionLog）
     │   ├── actionLogStore.js   # 只追加的不可变日志
@@ -291,6 +306,7 @@ PlanTrace/
 | 3D | Three.js + @react-three/fiber |
 | 动效 | Framer Motion |
 | 存储 | 本地 data/ 文件存储（Event Sourcing）+ 旧 LocalStorage 自动迁移 |
+| 小程序 | 微信小程序原生框架 + wx.storage 本地存储 |
 | 字体 | Inter（Google Fonts）|
 
 ---
@@ -311,6 +327,7 @@ PlanTrace/
 > 左下角 `Backup Data` 会额外生成一份完整 JSON 备份，包含主数据和 `data/diary/` 日记内容。
 > 左下角 `Mobile Sync` 可生成手机端导入数据包，也可合并手机端导出的 JSON 回电脑端；电脑端和手机端导入都按 id 合并，不整库覆盖，同一天日记会做安全合并。
 > 手机端支持轻量主题切换，导出的 JSON 会带上当前移动端主题。
+> `Wechat_APP` 小程序端使用同一套 JSON 合并协议，`我的` 页可导出给电脑端，也可合并电脑端导出的 JSON；小程序本地数据不会自动联网同步。
 
 ---
 

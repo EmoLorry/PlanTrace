@@ -144,7 +144,7 @@ macOS：
 如果当前目录是 Git 仓库：
 
 ```bash
-git add .gitattributes src public scripts index.html package.json package-lock.json vite.config.js eslint.config.js .gitignore README.md DEPLOY.md LICENSE
+git add .gitattributes src public scripts Wechat_APP index.html package.json package-lock.json vite.config.js eslint.config.js .gitignore README.md DEPLOY.md LICENSE
 git add install.bat start.bat Install-PlanTrace-From-GitHub.bat Update-PlanTrace.bat
 git add Install-PlanTrace-From-GitHub-Windows.bat Update-PlanTrace-Windows.bat Start-PlanTrace-Windows.bat Install-PlanTrace-Local-Windows.bat
 git add Install-PlanTrace-From-GitHub-macOS.command install-macOS.command start-macOS.command Update-PlanTrace-macOS.command

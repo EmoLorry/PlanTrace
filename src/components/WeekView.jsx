@@ -1,14 +1,23 @@
 import { useState, useMemo } from 'react';
 import { X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
-import { getAllLogs, isTaskDateDeleted } from '../store/actionLogStore.js';
+import { getAllLogs } from '../store/actionLogStore.js';
 import { getJSON } from '../store/storage.js';
-import { parseDateStr, formatDateBJ, getTodayBJ } from '../store/dateUtils.js';
+import {
+    parseDateStr,
+    formatDateBJ,
+    formatTimeBJ,
+    getStartOfDayMsBJ,
+    getTodayBJ,
+    shiftDate,
+    splitIntervalByBJDate,
+} from '../store/dateUtils.js';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 const HOUR_H   = 64;  // px per hour — 30min = 32px, 15min = 16px
 const HEADER_H = 68;  // sticky day-header height
+const DATE_MEMBERSHIP_ACTIONS = new Set(['CREATE', 'ROLLOVER', 'DELETE']);
 
 // ---------------------------------------------------------------------------
 // Task color palette — consistent hash → color
@@ -72,7 +81,7 @@ function fmtDuration(secs) {
  * ms → pixel offset from the TOP of the visible range (startHour:00).
  */
 function msToTop(ms, dateStr, startHour) {
-    const dayStart = new Date(`${dateStr}T00:00:00`).getTime();
+    const dayStart = getStartOfDayMsBJ(dateStr);
     return ((ms - dayStart) / 3600000) * HOUR_H - startHour * HOUR_H;
 }
 
@@ -83,11 +92,15 @@ function secToH(secs) { return (secs / 3600) * HOUR_H; }
  * contains every event, padded by 1 hour on each side.
  * Falls back to [7, 22] when no events exist.
  */
-function calcTimeRange(weekDates, mode) {
+function getDateBlocks(blockMap, dateStr) {
+    return blockMap.get(dateStr) || [];
+}
+
+function calcTimeRange(weekDates, blockMap) {
     let minH = Infinity, maxH = -Infinity;
     for (const dateStr of weekDates) {
-        const blocks   = mode === 'atomic' ? getAtomicBlocks(dateStr) : getHammerBlocks(dateStr);
-        const dayStart = new Date(`${dateStr}T00:00:00`).getTime();
+        const blocks = getDateBlocks(blockMap, dateStr);
+        const dayStart = getStartOfDayMsBJ(dateStr);
         for (const b of blocks) {
             const sh = (b.startMs - dayStart) / 3600000;
             const eh = (b.endMs   - dayStart) / 3600000;
@@ -127,33 +140,91 @@ function layoutBlocks(blocks) {
 // ---------------------------------------------------------------------------
 // Data loaders
 // ---------------------------------------------------------------------------
-function getHammerBlocks(dateStr) {
-    const logs  = getAllLogs();
-    const tasks = getJSON('tasks') || [];
-    return logs
-        .filter((l) => (
-            l.target_date === dateStr
-            && l.action_type === 'HAMMER'
-            && l.duration_seconds > 0
-            && !isTaskDateDeleted(l.task_id, dateStr, logs)
-        ))
-        .map((l) => {
-            const task = tasks.find((t) => t.id === l.task_id);
-            const endMs   = l.timestamp;
-            const startMs = endMs - l.duration_seconds * 1000;
-            return { id: l.log_id, taskId: l.task_id, label: task?.content || '未知任务', startMs, endMs, duration: l.duration_seconds };
-        });
+function createBlockMap(weekDates) {
+    return new Map(weekDates.map((dateStr) => [dateStr, []]));
 }
 
-function getAtomicBlocks(dateStr) {
+function taskDateKey(taskId, dateStr) {
+    return `${taskId}::${dateStr}`;
+}
+
+function getDeletedTaskDates(logs) {
+    const latestByDate = new Map();
+    for (const log of logs) {
+        if (!log?.task_id || !log.target_date || !DATE_MEMBERSHIP_ACTIONS.has(log.action_type)) continue;
+        const key = taskDateKey(log.task_id, log.target_date);
+        const timestamp = Number(log.timestamp) || 0;
+        const current = latestByDate.get(key);
+        if (!current || timestamp >= current.timestamp) {
+            latestByDate.set(key, { action: log.action_type, timestamp });
+        }
+    }
+    return new Set(
+        [...latestByDate.entries()]
+            .filter(([, value]) => value.action === 'DELETE')
+            .map(([key]) => key),
+    );
+}
+
+function sortBlockMap(blockMap) {
+    for (const blocks of blockMap.values()) {
+        blocks.sort((a, b) => a.startMs - b.startMs);
+    }
+    return blockMap;
+}
+
+function buildHammerBlockMap(weekDates) {
+    const blockMap = createBlockMap(weekDates);
+    const logs = getAllLogs();
+    const deletedDates = getDeletedTaskDates(logs);
+    const tasksById = new Map((getJSON('tasks') || []).map((task) => [task.id, task]));
+
+    for (const log of logs) {
+        const duration = Number(log?.duration_seconds) || 0;
+        const endMs = Number(log?.timestamp) || 0;
+        if (log?.action_type !== 'HAMMER' || duration <= 0 || endMs <= 0) continue;
+        if (log.target_date && deletedDates.has(taskDateKey(log.task_id, log.target_date))) continue;
+
+        const task = tasksById.get(log.task_id);
+        const startMs = endMs - duration * 1000;
+        for (const segment of splitIntervalByBJDate(startMs, endMs)) {
+            const blocks = blockMap.get(segment.date);
+            if (!blocks || (!log.target_date && deletedDates.has(taskDateKey(log.task_id, segment.date)))) continue;
+            blocks.push({
+                id: `${log.log_id}-${segment.date}-${segment.startMs}`,
+                taskId: log.task_id,
+                label: task?.content || '未知任务',
+                startMs: segment.startMs,
+                endMs: segment.endMs,
+                duration: segment.durationSeconds,
+            });
+        }
+    }
+
+    return sortBlockMap(blockMap);
+}
+
+function buildAtomicBlockMap(weekDates) {
+    const blockMap = createBlockMap(weekDates);
     const sessions = getJSON('atomic_sessions') || [];
-    return sessions
-        .filter((s) => s.date === dateStr && s.status === 'completed' && s.ended_at)
-        .map((s) => ({
-            id: s.session_id, taskId: s.session_id, label: s.label,
-            startMs: s.started_at, endMs: s.ended_at,
-            duration: Math.round((s.ended_at - s.started_at) / 1000),
-        }));
+
+    for (const session of sessions) {
+        if (session?.status !== 'completed' || !session.started_at || !session.ended_at) continue;
+        for (const segment of splitIntervalByBJDate(session.started_at, session.ended_at)) {
+            const blocks = blockMap.get(segment.date);
+            if (!blocks) continue;
+            blocks.push({
+                id: `${session.session_id}-${segment.date}-${segment.startMs}`,
+                taskId: session.session_id,
+                label: session.label,
+                startMs: segment.startMs,
+                endMs: segment.endMs,
+                duration: segment.durationSeconds,
+            });
+        }
+    }
+
+    return sortBlockMap(blockMap);
 }
 
 // ---------------------------------------------------------------------------
@@ -168,8 +239,7 @@ function TimeBlock({ block, dateStr, isAtomic, startHour }) {
     const SHORT = 38; // 22–38px → label only
 
     const fmt = (ms) => {
-        const d = new Date(ms);
-        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        return formatTimeBJ(ms);
     };
 
     const colWidth = `${100 / block.totalCols}%`;
@@ -202,9 +272,8 @@ function TimeBlock({ block, dateStr, isAtomic, startHour }) {
 // ---------------------------------------------------------------------------
 // DayColumn
 // ---------------------------------------------------------------------------
-function DayColumn({ dateStr, weekdayLabel, isToday, mode, startHour, rangeH }) {
-    const blocks   = mode === 'atomic' ? getAtomicBlocks(dateStr) : getHammerBlocks(dateStr);
-    const laid     = useMemo(() => layoutBlocks(blocks), [blocks]);
+function DayColumn({ dateStr, weekdayLabel, isToday, mode, startHour, rangeH, blocks }) {
+    const laid = useMemo(() => layoutBlocks(blocks), [blocks]);
     const totalSec = blocks.reduce((s, b) => s + b.duration, 0);
     const monthDay = dateStr.slice(5);
 
@@ -236,21 +305,26 @@ export default function WeekView({ initialDate, onClose }) {
 
     const weekDates = useMemo(() => getWeekDates(anchorDate), [anchorDate]);
     const today     = getTodayBJ();
+    const blockMap = useMemo(() => (
+        mode === 'atomic'
+            ? buildAtomicBlockMap(weekDates)
+            : buildHammerBlockMap(weekDates)
+    ), [weekDates, mode]);
 
-    const prevWeek = () => setAnchorDate((d) => { const dt = parseDateStr(d); dt.setDate(dt.getDate() - 7); return formatDateBJ(dt); });
-    const nextWeek = () => setAnchorDate((d) => { const dt = parseDateStr(d); dt.setDate(dt.getDate() + 7); return formatDateBJ(dt); });
+    const prevWeek = () => setAnchorDate((d) => shiftDate(d, -7));
+    const nextWeek = () => setAnchorDate((d) => shiftDate(d, 7));
     const goToday  = () => setAnchorDate(getTodayBJ());
 
     // Dynamic time range — recalculated when week or mode changes
-    const { startHour, endHour } = useMemo(() => calcTimeRange(weekDates, mode), [weekDates, mode]);
+    const { startHour, endHour } = useMemo(() => calcTimeRange(weekDates, blockMap), [weekDates, blockMap]);
     const rangeH = (endHour - startHour) * HOUR_H;
     const hours  = Array.from({ length: endHour - startHour + 1 }, (_, i) => startHour + i);
 
     // Weekly total
     const weekTotal = useMemo(() => weekDates.reduce((sum, d) => {
-        const blocks = mode === 'atomic' ? getAtomicBlocks(d) : getHammerBlocks(d);
+        const blocks = getDateBlocks(blockMap, d);
         return sum + blocks.reduce((s, b) => s + b.duration, 0);
-    }, 0), [weekDates, mode]);
+    }, 0), [weekDates, blockMap]);
 
     const firstDate  = parseDateStr(weekDates[0]);
     const monthLabel = `${firstDate.getFullYear()}年 ${firstDate.getMonth() + 1}月`;
@@ -312,6 +386,7 @@ export default function WeekView({ initialDate, onClose }) {
                             <DayColumn
                                 key={d} dateStr={d} weekdayLabel={CN_DAYS[i]}
                                 isToday={d === today} mode={mode}
+                                blocks={getDateBlocks(blockMap, d)}
                                 startHour={startHour} rangeH={rangeH}
                             />
                         ))}

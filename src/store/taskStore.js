@@ -174,7 +174,7 @@ export function hammerTask(taskId, durationSeconds) {
 }
 
 /**
- * Record a real Hammer timer session. If it crosses Beijing midnight, split it
+ * Record a real Hammer timer session. If it crosses the app timezone midnight, split it
  * into one segment per day and auto-roll the task into each new date.
  */
 export function recordHammerSession(taskId, startMs, endMs = Date.now()) {

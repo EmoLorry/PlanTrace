@@ -354,7 +354,7 @@ try {
     }
 
     Write-Step 'Applying update'
-    foreach ($dir in @('src', 'public')) {
+    foreach ($dir in @('src', 'public', 'Wechat_APP')) {
         $src = Join-Path $sourceRoot.FullName $dir
         $dst = Join-Path $root $dir
         if (Test-Path -LiteralPath $src) {

@@ -26,4 +26,17 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
+  {
+    files: ['Wechat_APP/**/*.js'],
+    languageOptions: {
+      globals: {
+        App: 'readonly',
+        Page: 'readonly',
+        wx: 'readonly',
+        getApp: 'readonly',
+        require: 'readonly',
+        module: 'writable',
+      },
+    },
+  },
 ])

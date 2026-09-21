@@ -4,7 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from './components/ThemeContext.jsx';
 import ThemeSwitcher from './components/ThemeSwitcher.jsx';
 import TraceStar from './pages/TraceStar/ThreeDTraceView.jsx';
-import { CircleHelp, Sparkles, Star, BookOpen, CalendarDays, RefreshCw } from 'lucide-react';
+import { CircleHelp, Sparkles, Star, BookOpen, CalendarDays, RefreshCw, Settings as SettingsIcon } from 'lucide-react';
 import Sidebar from './components/Sidebar.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import TaskList from './components/TaskList.jsx';
@@ -16,10 +16,12 @@ import WeekView from './components/WeekView.jsx';
 import UpdateModal from './components/UpdateModal.jsx';
 import OnboardingModal from './components/OnboardingModal.jsx';
 import MobileTransferModal from './components/MobileTransferModal.jsx';
+import SettingsModal from './components/SettingsModal.jsx';
 import { checkUpdateStatus } from './store/versionStore.js';
 import { markOnboardingSeen, shouldAutoShowOnboarding } from './store/onboardingStore.js';
 import { getNextMidnightMsBJ, getTodayBJ } from './store/dateUtils.js';
 import { getJSON, initFileStorage, setJSON } from './store/storage.js';
+import { initializeAppSettings } from './store/settingsStore.js';
 import {
   getTasksForDate,
   createTask,
@@ -47,6 +49,7 @@ function AppContent() {
   const [showWeekView,   setShowWeekView]   = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showMobileTransfer, setShowMobileTransfer] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [updateManifest, setUpdateManifest] = useState(null);  // remote version info
   const [updateIsManual, setUpdateIsManual] = useState(false); // triggered by button?
   const [showEdge, setShowEdge] = useState(() => {
@@ -232,6 +235,14 @@ function AppContent() {
               >
                 <Sparkles size={18} />
               </button>
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-accent"
+                title="设置 / Settings"
+                aria-label="设置"
+              >
+                <SettingsIcon size={18} />
+              </button>
               <ThemeSwitcher />
             </div>
 
@@ -298,6 +309,10 @@ function AppContent() {
             <MobileTransferModal onClose={() => setShowMobileTransfer(false)} />
           )}
 
+          {showSettings && (
+            <SettingsModal onClose={() => setShowSettings(false)} />
+          )}
+
           {updateManifest && (
             <UpdateModal
               manifest={updateManifest}
@@ -326,6 +341,7 @@ function DataBootstrap({ children }) {
     let alive = true;
     initFileStorage()
       .then(() => {
+        initializeAppSettings();
         repairTaskDateIntegrity();
         if (alive) setState('ready');
       })
