@@ -71,6 +71,38 @@ function getNoteColor(id) {
     return NOTE_COLORS.find((c) => c.id === id) || NOTE_COLORS[0];
 }
 
+function normalizeDiaryState(raw) {
+    const source = raw && typeof raw === 'object' ? raw : createEmptyDiary();
+    const seenNoteIds = new Set();
+    const notes = Array.isArray(source.notes)
+        ? source.notes
+            .filter((note) => note && typeof note === 'object')
+            .map((note) => {
+                let id = note.id ? String(note.id) : noteId();
+                while (seenNoteIds.has(id)) id = noteId();
+                seenNoteIds.add(id);
+                return {
+                    ...note,
+                    id,
+                    text: typeof note.text === 'string' ? note.text : '',
+                    color: getNoteColor(note.color).id,
+                    createdAt: Number(note.createdAt) || Date.now(),
+                };
+            })
+        : [];
+
+    const mainText = typeof source.mainText === 'string' ? source.mainText : '';
+    const mainHtml = typeof source.mainHtml === 'string' ? source.mainHtml : plainTextToHtml(mainText);
+    return {
+        ...createEmptyDiary(),
+        ...source,
+        mainText,
+        mainHtml,
+        notes,
+        lastModified: Number(source.lastModified) || Date.now(),
+    };
+}
+
 function formatNoteTime(ms) {
     const d = new Date(ms);
     const h = String(d.getHours()).padStart(2, '0');
@@ -284,7 +316,7 @@ export default function DiaryModal({ selectedDate, onDateChange, onClose }) {
         if (fsState !== 'ready') return;
         (async () => {
             const data = await readDiary(null, selectedDate);
-            const next = data || createEmptyDiary();
+            const next = normalizeDiaryState(data || createEmptyDiary());
             diaryRef.current = next;
             setDiary(next);
             if (fullscreenRef.current) {
@@ -319,13 +351,13 @@ export default function DiaryModal({ selectedDate, onDateChange, onClose }) {
     }, [calendarMonth, selectedDate]);
 
     const updateDiary = useCallback((updater) => {
-        setDiary((prev) => {
-            const base = diaryRef.current || prev;
-            const next = typeof updater === 'function' ? updater(base) : { ...base, ...updater };
-            diaryRef.current = next;
-            scheduleSave(next);
-            return next;
-        });
+        const base = diaryRef.current || createEmptyDiary();
+        const next = normalizeDiaryState(
+            typeof updater === 'function' ? updater(base) : { ...base, ...updater },
+        );
+        diaryRef.current = next;
+        setDiary(next);
+        scheduleSave(next);
     }, [scheduleSave]);
 
     const handleImportLegacyDir = async () => {
@@ -334,7 +366,7 @@ export default function DiaryModal({ selectedDate, onDateChange, onClose }) {
             const result = await importLegacyDiaryDirectory();
             setMigrationInfo(result);
             const data = await readDiary(null, selectedDate);
-            const next = data || createEmptyDiary();
+            const next = normalizeDiaryState(data || createEmptyDiary());
             diaryRef.current = next;
             setDiary(next);
             if (fullscreen) syncRichEditor(next);
