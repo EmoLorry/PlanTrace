@@ -3,19 +3,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowLeft,
     ArrowRight,
-    BookOpen,
+    BookOpenText,
     CalendarDays,
     CheckCircle2,
     CircleHelp,
     Clock3,
+    DatabaseBackup,
     Edit2,
+    FileText,
     Hammer,
     ListPlus,
+    MonitorSmartphone,
+    NotebookPen,
     Palette,
     Plus,
     RefreshCw,
+    Settings2,
     Sparkles,
-    Star,
     Trash2,
     X,
 } from 'lucide-react';
@@ -25,16 +29,16 @@ const steps = [
         icon: Sparkles,
         demo: 'welcome',
         eyebrow: '开始',
-        title: '欢迎来到 PlanTrace',
-        body: '这里不是只放待办清单，而是把任务、投入、日记和时间轨迹放在同一个本地工作台里。',
+        title: '欢迎来到星轨记忆 PlanTrace',
+        body: '它不是普通待办清单，而是一个本地个人工作台：任务、投入时间、日记、阅读摘录、主题和数据备份都放在同一套清晰结构里。',
         accent: 'var(--color-accent)',
     },
     {
         icon: ListPlus,
         demo: 'addTask',
-        eyebrow: '添加任务',
+        eyebrow: '任务',
         title: '从顶部输入框写下今天要推进的事',
-        body: '在主界面左上方输入任务名，点击右侧加号即可添加。以后也可以用“Plan Future”把任务放到未来日期。',
+        body: '在主界面左上方输入任务名，点击右侧加号即可添加。需要提前规划时，可以用 Plan Future 把任务放到未来日期。',
         accent: 'var(--color-blue-dot)',
     },
     {
@@ -48,34 +52,66 @@ const steps = [
     {
         icon: Clock3,
         demo: 'timer',
-        eyebrow: '投入记录',
+        eyebrow: '投入',
         title: 'Hammer 和原子时钟记录真实投入',
-        body: 'Hammer 绑定具体任务，适合记录“我推进了这个任务”；原子时钟记录一段专注时间，适合沉浸式工作。',
+        body: 'Hammer 绑定具体任务，适合记录“我推进了这个任务”；原子时钟记录一段专注时间，适合沉浸式工作。跨天计时会自动拆分到对应日期。',
         accent: 'var(--color-amber)',
     },
     {
         icon: CalendarDays,
-        demo: 'dateDots',
-        eyebrow: '日期状态',
-        title: '侧边栏光点会告诉你每天的状态',
-        body: '绿点代表当日全部完成，蓝点代表仍有待办，灰点代表历史未完成。扫一眼就能看到进度分布。',
+        demo: 'week',
+        eyebrow: '周视图',
+        title: '用周日程看见时间到底花在哪里',
+        body: '周视图会把 Hammer 记录和原子时间铺成时间块，适合复盘一周的真实节奏。侧边栏日期光点也会提示每天是否完成、有待办或历史未完成。',
         accent: 'var(--color-green-dot)',
     },
     {
-        icon: CircleHelp,
+        icon: NotebookPen,
+        demo: 'diary',
+        eyebrow: '日记',
+        title: '日记用于沉淀当天发生的事和碎碎念',
+        body: '日记支持主日记和碎碎念，放大后可以看到月历、富文本样式和写作控制。阅读器摘录也能一键导入当天碎碎念。',
+        accent: 'var(--color-amber)',
+    },
+    {
+        icon: BookOpenText,
+        demo: 'reader',
+        eyebrow: '阅读器',
+        title: '本地 EPUB 阅读器可以做书架、标注和摘录',
+        body: '导入本地 EPUB 后，书籍会保存到 data/epub。一本书可以属于多个书架，阅读位置、标色、下划线、笔记都会保留，也可以把选中文本加入碎碎念。',
+        accent: '#7c3aed',
+    },
+    {
+        icon: Settings2,
         demo: 'topbar',
         eyebrow: '右上角工具',
-        title: '常用功能都在右上角',
-        body: '问号可重新打开新手指引，更新、日记、周视图、TraceStar 和主题按钮都在同一排，不需要到处找。',
+        title: '常用工具集中在右上角',
+        body: '问号可重新打开新手指引；更新、日记、阅读器、周视图、设置和主题入口都在同一排。设置里可以管理时区、历史版本、桌面快捷方式等。',
         accent: 'var(--color-green)',
     },
     {
-        icon: Palette,
+        icon: DatabaseBackup,
         demo: 'localData',
         eyebrow: '本地优先',
         title: '数据留在你的电脑里',
-        body: '任务、主题和日记统一保存在项目 data 文件夹里。后续更新不会覆盖个人数据，也可以导出完整备份。',
+        body: '任务、投入记录、日记、阅读器书库和备份都围绕项目 data 文件夹管理。软件更新只替换程序文件，不覆盖个人数据。',
         accent: 'var(--color-accent)',
+    },
+    {
+        icon: Palette,
+        demo: 'theme',
+        eyebrow: '个性化',
+        title: '主题可以切换，也可以自己 DIY',
+        body: 'PlanTrace 支持多套精选主题和 DIY 主题。背景、面板、文字、主色和状态色都可以调整，自定义主题会保存在本机数据里。',
+        accent: '#d946ef',
+    },
+    {
+        icon: MonitorSmartphone,
+        demo: 'wechat',
+        eyebrow: '移动端',
+        title: '微信小程序「星轨记忆」正在筹备上线',
+        body: '手机端会围绕任务、日记和未来的星轨体验重新设计。当前正在筹备上线，敬请期待！',
+        accent: 'var(--color-blue-dot)',
     },
 ];
 
@@ -153,6 +189,32 @@ function renderDemo(step) {
         );
     }
 
+    if (step.demo === 'week') {
+        return (
+            <div className="onb-demo-panel onb-week-demo">
+                <div className="onb-week-head">
+                    <CalendarDays size={15} />
+                    <span>Week View</span>
+                    <strong>投入轨迹</strong>
+                </div>
+                <div className="onb-week-grid">
+                    {['一', '二', '三', '四', '五'].map((day, i) => (
+                        <div className="onb-week-day" key={day}>
+                            <span>{day}</span>
+                            <i style={{ height: `${38 + i * 9}px` }} />
+                            <b style={{ height: `${22 + (4 - i) * 8}px` }} />
+                        </div>
+                    ))}
+                </div>
+                <div className="onb-dot-legend">
+                    <span><i className="dot-green" /> 已完成</span>
+                    <span><i className="dot-blue" /> 有待办</span>
+                    <span><i className="dot-grey" /> 历史未完成</span>
+                </div>
+            </div>
+        );
+    }
+
     if (step.demo === 'dateDots') {
         return (
             <div className="onb-demo-panel onb-dots-demo">
@@ -180,19 +242,70 @@ function renderDemo(step) {
         );
     }
 
+    if (step.demo === 'diary') {
+        return (
+            <div className="onb-demo-panel onb-diary-demo">
+                <div className="onb-diary-head">
+                    <NotebookPen size={15} />
+                    <strong>9月22日 · 周二</strong>
+                    <span />
+                </div>
+                <div className="onb-diary-calendar">
+                    {[18, 19, 20, 21, 22].map((day) => (
+                        <span key={day} className={day === 22 ? 'active' : day === 21 ? 'has-note' : ''}>
+                            {day}
+                            {day === 21 && <b>2</b>}
+                        </span>
+                    ))}
+                </div>
+                <div className="onb-diary-editor">
+                    <strong>主日记</strong>
+                    <p>今天想思考一个真正重要的问题...</p>
+                </div>
+                <div className="onb-diary-note">碎碎念 · 2</div>
+            </div>
+        );
+    }
+
+    if (step.demo === 'reader') {
+        return (
+            <div className="onb-demo-panel onb-reader-demo">
+                <div className="onb-reader-sidebar">
+                    <div className="onb-reader-import">导入 EPUB</div>
+                    <span className="active">默认书架</span>
+                    <span>心理学</span>
+                </div>
+                <div className="onb-reader-page">
+                    <div className="onb-reader-title">
+                        <BookOpenText size={15} />
+                        <strong>本地阅读器</strong>
+                    </div>
+                    <p>选中文本后可以标色、下划线、写评论，也可以导入今天的碎碎念。</p>
+                    <div className="onb-reader-mark">
+                        <span />
+                        <span />
+                        <span />
+                        <button>+ 碎碎念</button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (step.demo === 'topbar') {
         return (
             <div className="onb-demo-panel onb-topbar-demo">
                 <div className="onb-mini-topbar">
                     <CircleHelp size={17} />
                     <RefreshCw size={17} />
-                    <BookOpen size={17} />
+                    <NotebookPen size={17} />
+                    <BookOpenText size={17} />
                     <CalendarDays size={17} />
-                    <Star size={17} />
+                    <Settings2 size={17} />
                     <Palette size={17} />
                 </div>
                 <DemoLabel className="onb-label-guide">问号 = 新手指引</DemoLabel>
-                <DemoLabel className="onb-label-views">日记 / 周视图 / 星图</DemoLabel>
+                <DemoLabel className="onb-label-views">日记 / 阅读 / 周视图 / 设置</DemoLabel>
             </div>
         );
     }
@@ -200,9 +313,50 @@ function renderDemo(step) {
     if (step.demo === 'localData') {
         return (
             <div className="onb-demo-panel onb-local-demo">
-                <div className="onb-local-row"><span>Tasks</span><strong>Browser LocalStorage</strong></div>
-                <div className="onb-local-row"><span>Diary</span><strong>Your folder</strong></div>
-                <div className="onb-local-row"><span>Updates</span><strong>Keep user data</strong></div>
+                <div className="onb-local-row"><span><DatabaseBackup size={13} /> Tasks</span><strong>data/plantrace-data.json</strong></div>
+                <div className="onb-local-row"><span><FileText size={13} /> Diary</span><strong>data/diary/</strong></div>
+                <div className="onb-local-row"><span><BookOpenText size={13} /> EPUB</span><strong>data/epub/</strong></div>
+                <div className="onb-local-row"><span><RefreshCw size={13} /> Updates</span><strong>保留个人数据</strong></div>
+            </div>
+        );
+    }
+
+    if (step.demo === 'theme') {
+        return (
+            <div className="onb-demo-panel onb-theme-demo">
+                <div className="onb-theme-window">
+                    <span style={{ background: '#f7f3ea' }} />
+                    <span style={{ background: '#111827' }} />
+                    <span style={{ background: '#dbeafe' }} />
+                    <span style={{ background: '#e7f4df' }} />
+                </div>
+                <div className="onb-theme-sliders">
+                    <i />
+                    <i />
+                    <i />
+                </div>
+                <DemoLabel className="onb-label-theme">精选主题 + DIY</DemoLabel>
+            </div>
+        );
+    }
+
+    if (step.demo === 'wechat') {
+        return (
+            <div className="onb-demo-panel onb-wechat-demo">
+                <div className="onb-phone">
+                    <div className="onb-phone-head">星轨记忆</div>
+                    <div className="onb-phone-orbits">
+                        <span />
+                        <span />
+                        <span />
+                    </div>
+                    <div className="onb-phone-tabs">
+                        <i />
+                        <i />
+                        <i />
+                    </div>
+                </div>
+                <div className="onb-wechat-badge">微信小程序筹备中</div>
             </div>
         );
     }

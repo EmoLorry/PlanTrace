@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, lazy, useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { ThemeProvider } from './components/ThemeContext.jsx';
 import ThemeSwitcher from './components/ThemeSwitcher.jsx';
 import TraceStar from './pages/TraceStar/ThreeDTraceView.jsx';
-import { CircleHelp, Sparkles, Star, BookOpen, CalendarDays, RefreshCw, Settings as SettingsIcon } from 'lucide-react';
+import { CircleHelp, Sparkles, Star, NotebookPen, CalendarDays, BookOpenText, RefreshCw, Settings as SettingsIcon } from 'lucide-react';
 import Sidebar from './components/Sidebar.jsx';
 import Toolbar from './components/Toolbar.jsx';
 import TaskList from './components/TaskList.jsx';
@@ -34,6 +34,7 @@ import {
   getPendingRolloverCandidates,
 } from './store/taskStore.js';
 
+const EpubReader = lazy(() => import('./modules/reader/EpubReader.jsx'));
 
 const ROLLOVER_DISMISS_KEY = 'rollover_dismissed';
 
@@ -47,6 +48,7 @@ function AppContent() {
   const [showPlanFuture, setShowPlanFuture] = useState(false);
   const [showDiary,      setShowDiary]      = useState(false);
   const [showWeekView,   setShowWeekView]   = useState(false);
+  const [showReader, setShowReader] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showMobileTransfer, setShowMobileTransfer] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -206,8 +208,17 @@ function AppContent() {
                 onClick={() => setShowDiary(true)}
                 className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-amber-400"
                 title="日记"
+                aria-label="日记"
               >
-                <BookOpen size={18} />
+                <NotebookPen size={18} strokeWidth={2.15} />
+              </button>
+              <button
+                onClick={() => setShowReader(true)}
+                className="p-2 rounded-xl hover:bg-[var(--th-hover)] transition-all text-text-muted hover:text-violet-400"
+                title="阅读器"
+                aria-label="阅读器"
+              >
+                <BookOpenText size={18} strokeWidth={2.15} />
               </button>
               <button
                 onClick={() => setShowWeekView(true)}
@@ -294,6 +305,7 @@ function AppContent() {
           {showDiary && (
             <DiaryModal
               selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
               onClose={() => setShowDiary(false)}
             />
           )}
@@ -303,6 +315,16 @@ function AppContent() {
               initialDate={selectedDate}
               onClose={() => setShowWeekView(false)}
             />
+          )}
+
+          {showReader && (
+            <Suspense fallback={(
+              <div className="reader-overlay reader-loading">
+                <div className="reader-loading-card">正在打开本地阅读器...</div>
+              </div>
+            )}>
+              <EpubReader onClose={() => setShowReader(false)} />
+            </Suspense>
           )}
 
           {showMobileTransfer && (

@@ -4,7 +4,7 @@
  * Legacy File System Access handles are kept only for one-time migration/import.
  *
  * File layout (one per day): data/diary/diary-YYYY-MM-DD.json
- * Schema: { mainText, notes: [{id, text, color, createdAt}], lastModified }
+ * Schema: { mainText, mainHtml, notes: [{id, text, color, createdAt}], lastModified }
  */
 
 const DB_NAME    = 'plantrace_diary';
@@ -197,6 +197,15 @@ export async function writeDiary(_dirHandle, dateStr, data) {
     return payload.diary;
 }
 
+export async function readDiaryMonthSummary(monthStr) {
+    try {
+        const payload = await requestJSONWithRetry(`/api/data/diary-summary/${monthStr}`, {}, 2);
+        return Array.isArray(payload.days) ? payload.days : [];
+    } catch {
+        return [];
+    }
+}
+
 async function collectDiaryEntriesFromHandle(dirHandle) {
     const entries = [];
     if (!dirHandle || !dirHandle.entries) return entries;
@@ -265,7 +274,7 @@ export async function importLegacyDiaryDirectory() {
 // ---------------------------------------------------------------------------
 
 export function createEmptyDiary() {
-    return { mainText: '', notes: [], lastModified: Date.now() };
+    return { mainText: '', mainHtml: '', notes: [], lastModified: Date.now() };
 }
 
 /** Generate a unique ID for a note */

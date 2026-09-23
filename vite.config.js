@@ -18,7 +18,7 @@ const DATA_SCHEMA_VERSION = 1;
 
 function sendJson(res, payload, statusCode = 200) {
   res.statusCode = statusCode;
-  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify(payload));
 }
 
@@ -46,10 +46,15 @@ function readRequestJson(req, limitBytes = 20 * 1024 * 1024) {
 function ensureDataDirs() {
   const dataDir = path.resolve('data');
   const diaryDir = path.join(dataDir, 'diary');
+  const epubDir = path.join(dataDir, 'epub');
+  const epubBooksDir = path.join(epubDir, 'books');
   fs.mkdirSync(diaryDir, { recursive: true });
+  fs.mkdirSync(epubBooksDir, { recursive: true });
   return {
     dataDir,
     diaryDir,
+    epubDir,
+    epubBooksDir,
     dataFile: path.join(dataDir, 'plantrace-data.json'),
   };
 }
@@ -144,6 +149,7 @@ function writeDiaryFile(dateStr, data) {
   const filePath = diaryPathForDate(dateStr);
   const next = {
     mainText: typeof data?.mainText === 'string' ? data.mainText : '',
+    mainHtml: typeof data?.mainHtml === 'string' ? data.mainHtml : '',
     notes: Array.isArray(data?.notes) ? data.notes : [],
     lastModified: Number(data?.lastModified) || Date.now(),
   };
@@ -156,6 +162,7 @@ function writeDiaryFile(dateStr, data) {
 function normalizeDiaryData(data) {
   return {
     mainText: typeof data?.mainText === 'string' ? data.mainText : '',
+    mainHtml: typeof data?.mainHtml === 'string' ? data.mainHtml : '',
     notes: Array.isArray(data?.notes) ? data.notes.filter((note) => note && typeof note === 'object') : [],
     lastModified: Number(data?.lastModified) || 0,
   };
@@ -165,6 +172,7 @@ function diaryHasContent(data) {
   const diary = normalizeDiaryData(data);
   return Boolean(
     diary.mainText.trim()
+    || diary.mainHtml.replace(/<[^>]+>/g, '').trim()
     || diary.notes.some((note) => String(note?.text || '').trim())
   );
 }
@@ -189,14 +197,21 @@ function mergeDiaryData(existingRaw, incomingRaw) {
   const incomingModified = incoming.lastModified;
   const existingText = existing.mainText;
   const incomingText = incoming.mainText;
+  const existingHtml = existing.mainHtml;
+  const incomingHtml = incoming.mainHtml;
 
   let mainText = existingText;
+  let mainHtml = existingHtml;
   if (incomingText.trim()) {
     if (!existingText.trim() || incomingModified >= existingModified) {
       mainText = incomingText;
+      mainHtml = incomingHtml;
     }
   } else if (!existingText.trim()) {
     mainText = incomingText;
+    mainHtml = incomingHtml;
+  } else if (incomingHtml.trim() && incomingModified >= existingModified) {
+    mainHtml = incomingHtml;
   }
 
   const noteMap = new Map();
@@ -219,6 +234,7 @@ function mergeDiaryData(existingRaw, incomingRaw) {
 
   return {
     mainText,
+    mainHtml,
     notes,
     lastModified: Math.max(existingModified, incomingModified) || Date.now(),
   };
@@ -240,6 +256,149 @@ function readAllDiaryFiles() {
     })
     .filter((entry) => entry.diary)
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function validateMonthString(monthStr) {
+  if (!/^\d{4}-\d{2}$/.test(String(monthStr || ''))) {
+    throw new Error('Invalid month.');
+  }
+  return String(monthStr);
+}
+
+function readDiaryMonthSummary(monthStr) {
+  const month = validateMonthString(monthStr);
+  const { diaryDir } = ensureDataDirs();
+  const prefix = `diary-${month}-`;
+  return fs.readdirSync(diaryDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.startsWith(prefix) && /^diary-\d{4}-\d{2}-\d{2}\.json$/.test(entry.name))
+    .map((entry) => {
+      const date = entry.name.slice(6, 16);
+      const diary = normalizeDiaryData(readDiaryFile(date));
+      const mainText = diary.mainText.trim();
+      const noteCount = diary.notes.filter((note) => String(note?.text || '').trim()).length;
+      return {
+        date,
+        hasMain: Boolean(mainText),
+        noteCount,
+        hasContent: Boolean(mainText || noteCount),
+        lastModified: diary.lastModified || 0,
+      };
+    })
+    .filter((entry) => entry.hasContent)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ---------------------------------------------------------------------------
+// EPUB local library helpers
+// ---------------------------------------------------------------------------
+const DEFAULT_EPUB_SHELF_ID = 'shelf_default';
+
+function makeLocalId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function ensureEpubLibrary() {
+  const { epubDir, epubBooksDir } = ensureDataDirs();
+  const libraryFile = path.join(epubDir, 'library.json');
+  return { epubDir, epubBooksDir, libraryFile };
+}
+
+function makeEmptyEpubLibrary() {
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: 1,
+    updatedAt: now,
+    shelves: [
+      { id: DEFAULT_EPUB_SHELF_ID, name: '默认书架', createdAt: now, updatedAt: now },
+    ],
+    books: [],
+    annotations: [],
+  };
+}
+
+function normalizeEpubBook(book, shelfSet) {
+  const legacyShelfId = shelfSet.has(book?.shelfId) ? book.shelfId : DEFAULT_EPUB_SHELF_ID;
+  const shelfIds = new Set([DEFAULT_EPUB_SHELF_ID, legacyShelfId]);
+  if (Array.isArray(book?.shelfIds)) {
+    for (const shelfId of book.shelfIds) {
+      if (shelfSet.has(shelfId)) shelfIds.add(shelfId);
+    }
+  }
+  return {
+    ...book,
+    shelfId: legacyShelfId,
+    shelfIds: [...shelfIds],
+  };
+}
+
+function normalizeEpubLibrary(raw) {
+  const empty = makeEmptyEpubLibrary();
+  const source = raw && typeof raw === 'object' ? raw : empty;
+  const shelves = Array.isArray(source.shelves) ? source.shelves.filter((item) => item?.id) : empty.shelves;
+  const hasDefault = shelves.some((item) => item.id === DEFAULT_EPUB_SHELF_ID);
+  const normalizedShelves = hasDefault ? shelves : [empty.shelves[0], ...shelves];
+  const shelfSet = new Set(normalizedShelves.map((item) => item.id));
+  return {
+    schemaVersion: 1,
+    updatedAt: source.updatedAt || empty.updatedAt,
+    shelves: normalizedShelves,
+    books: Array.isArray(source.books)
+      ? source.books
+        .filter((item) => item?.id && item?.fileName)
+        .map((item) => normalizeEpubBook(item, shelfSet))
+      : [],
+    annotations: Array.isArray(source.annotations) ? source.annotations.filter((item) => item?.id && item?.bookId) : [],
+  };
+}
+
+function readEpubLibrary() {
+  const { libraryFile } = ensureEpubLibrary();
+  if (!fs.existsSync(libraryFile)) {
+    const empty = makeEmptyEpubLibrary();
+    writeEpubLibrary(empty);
+    return empty;
+  }
+
+  try {
+    return normalizeEpubLibrary(JSON.parse(fs.readFileSync(libraryFile, 'utf8')));
+  } catch {
+    quarantineFile(libraryFile);
+    const empty = makeEmptyEpubLibrary();
+    writeEpubLibrary(empty);
+    return empty;
+  }
+}
+
+function writeEpubLibrary(library) {
+  const { libraryFile } = ensureEpubLibrary();
+  const next = normalizeEpubLibrary({
+    ...library,
+    updatedAt: new Date().toISOString(),
+  });
+  const tempFile = `${libraryFile}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify(next, null, 2), 'utf8');
+  fs.renameSync(tempFile, libraryFile);
+  return next;
+}
+
+function parseEpubRoute(req) {
+  const pathname = new URL(req.url, 'http://localhost').pathname;
+  return pathname.replace(/^\/api\/epub/, '') || '/';
+}
+
+function sanitizeEpubUploadName(name) {
+  const base = path.basename(String(name || 'book.epub'))
+    .split('')
+    .map((char) => {
+      const code = char.charCodeAt(0);
+      return code < 32 || '<>:"/\\|?*'.includes(char) ? '_' : char;
+    })
+    .join('');
+  return base.toLowerCase().endsWith('.epub') ? base : `${base}.epub`;
+}
+
+function findEpubBook(library, bookId) {
+  return library.books.find((book) => book.id === bookId && book.status !== 'deleted');
 }
 
 function normalizeImportedPack(raw) {
@@ -425,6 +584,16 @@ function dataPlugin() {
             return;
           }
 
+          const diarySummaryMatch = route.match(/^\/diary-summary\/(\d{4}-\d{2})$/);
+          if (diarySummaryMatch && req.method === 'GET') {
+            sendJson(res, {
+              success: true,
+              month: diarySummaryMatch[1],
+              days: readDiaryMonthSummary(diarySummaryMatch[1]),
+            });
+            return;
+          }
+
           const diaryMatch = route.match(/^\/diary\/(\d{4}-\d{2}-\d{2})$/);
           if (diaryMatch && req.method === 'GET') {
             sendJson(res, {
@@ -483,6 +652,192 @@ function dataPlugin() {
             const body = await readRequestJson(req);
             const stats = mergeMobilePack(body.pack || body);
             sendJson(res, { success: true, stats });
+            return;
+          }
+
+          sendJson(res, { success: false, error: 'Not found.' }, 404);
+        } catch (err) {
+          sendJson(res, { success: false, error: err.message }, 500);
+        }
+      });
+    },
+  };
+}
+
+function epubPlugin() {
+  return {
+    name: 'plantrace-epub',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const pathname = new URL(req.url, 'http://localhost').pathname;
+        if (!pathname.startsWith('/api/epub')) {
+          next();
+          return;
+        }
+
+        try {
+          const route = parseEpubRoute(req);
+
+          if (route === '/library' && req.method === 'GET') {
+            sendJson(res, { success: true, library: readEpubLibrary() });
+            return;
+          }
+
+          if (route === '/shelf' && req.method === 'POST') {
+            const body = await readRequestJson(req);
+            const name = String(body.name || '').trim();
+            if (!name) throw new Error('Missing shelf name.');
+            const library = readEpubLibrary();
+            const now = new Date().toISOString();
+            const shelf = { id: makeLocalId('shelf'), name: name.slice(0, 60), createdAt: now, updatedAt: now };
+            library.shelves.push(shelf);
+            sendJson(res, { success: true, shelf, library: writeEpubLibrary(library) });
+            return;
+          }
+
+          const shelfMatch = route.match(/^\/shelf\/([^/]+)$/);
+          if (shelfMatch && req.method === 'DELETE') {
+            const shelfId = decodeURIComponent(shelfMatch[1]);
+            if (shelfId === DEFAULT_EPUB_SHELF_ID) throw new Error('Default shelf cannot be deleted.');
+
+            const library = readEpubLibrary();
+            const shelf = library.shelves.find((item) => item.id === shelfId);
+            if (!shelf) throw new Error('Shelf was not found.');
+
+            const now = new Date().toISOString();
+            library.shelves = library.shelves.filter((item) => item.id !== shelfId);
+            const shelfSet = new Set(library.shelves.map((item) => item.id));
+            library.books = library.books.map((book) => {
+              const next = {
+                ...book,
+                shelfId: book.shelfId === shelfId ? DEFAULT_EPUB_SHELF_ID : book.shelfId,
+                shelfIds: Array.isArray(book.shelfIds)
+                  ? book.shelfIds.filter((id) => id !== shelfId)
+                  : [],
+              };
+              const normalized = normalizeEpubBook(next, shelfSet);
+              if (JSON.stringify(normalized) !== JSON.stringify(book)) {
+                normalized.updatedAt = now;
+              }
+              return normalized;
+            });
+
+            sendJson(res, { success: true, shelf, library: writeEpubLibrary(library) });
+            return;
+          }
+
+          if (route === '/import' && req.method === 'POST') {
+            const body = await readRequestJson(req, 160 * 1024 * 1024);
+            const originalName = sanitizeEpubUploadName(body.name);
+            const dataBase64 = String(body.dataBase64 || '');
+            if (!dataBase64) throw new Error('Missing EPUB file data.');
+
+            const buffer = Buffer.from(dataBase64, 'base64');
+            if (!buffer.length) throw new Error('EPUB file is empty.');
+            if (buffer.length > 120 * 1024 * 1024) throw new Error('EPUB file is too large.');
+
+            const { epubBooksDir } = ensureEpubLibrary();
+            const library = readEpubLibrary();
+            const now = new Date().toISOString();
+            const id = makeLocalId('book');
+            const fileName = `${id}.epub`;
+            const filePath = path.join(epubBooksDir, fileName);
+            fs.writeFileSync(filePath, buffer);
+
+            const title = originalName.replace(/\.epub$/i, '').trim() || '未命名书籍';
+            const shelfId = library.shelves.some((item) => item.id === body.shelfId) ? body.shelfId : DEFAULT_EPUB_SHELF_ID;
+            const book = {
+              id,
+              title,
+              author: '',
+              originalName,
+              fileName,
+              shelfId,
+              shelfIds: [...new Set([DEFAULT_EPUB_SHELF_ID, shelfId])],
+              size: buffer.length,
+              createdAt: now,
+              updatedAt: now,
+              lastLocation: null,
+              readerSettings: {
+                fontSize: 18,
+                surface: 'paper',
+                lineHeight: 1.65,
+              },
+            };
+
+            library.books.unshift(book);
+            sendJson(res, { success: true, book, library: writeEpubLibrary(library) });
+            return;
+          }
+
+          const fileMatch = route.match(/^\/file\/([^/]+)(?:\/[^/]+)?$/);
+          if (fileMatch && req.method === 'GET') {
+            const library = readEpubLibrary();
+            const book = findEpubBook(library, fileMatch[1]);
+            if (!book) throw new Error('Book was not found.');
+            const { epubBooksDir } = ensureEpubLibrary();
+            const filePath = path.join(epubBooksDir, book.fileName);
+            if (!fs.existsSync(filePath)) throw new Error('EPUB file was not found.');
+            const stat = fs.statSync(filePath);
+            res.statusCode = 200;
+            res.setHeader('Content-Type', 'application/epub+zip');
+            res.setHeader('Cache-Control', 'no-store');
+            res.setHeader('Content-Length', String(stat.size));
+            res.setHeader('Accept-Ranges', 'bytes');
+            fs.createReadStream(filePath).pipe(res);
+            return;
+          }
+
+          const bookMatch = route.match(/^\/book\/([^/]+)$/);
+          if (bookMatch && req.method === 'POST') {
+            const body = await readRequestJson(req);
+            const library = readEpubLibrary();
+            const book = findEpubBook(library, bookMatch[1]);
+            if (!book) throw new Error('Book was not found.');
+
+            const allowed = ['title', 'author', 'shelfId', 'shelfIds', 'lastLocation', 'readerSettings'];
+            for (const key of allowed) {
+              if (Object.prototype.hasOwnProperty.call(body, key)) {
+                book[key] = body[key];
+              }
+            }
+            if (!library.shelves.some((item) => item.id === book.shelfId)) {
+              book.shelfId = DEFAULT_EPUB_SHELF_ID;
+            }
+            Object.assign(book, normalizeEpubBook(book, new Set(library.shelves.map((item) => item.id))));
+            book.updatedAt = new Date().toISOString();
+            sendJson(res, { success: true, book, library: writeEpubLibrary(library) });
+            return;
+          }
+
+          if (route === '/annotation' && req.method === 'POST') {
+            const body = await readRequestJson(req);
+            const library = readEpubLibrary();
+            const book = findEpubBook(library, body.bookId);
+            if (!book) throw new Error('Book was not found.');
+            if (!body.cfiRange) throw new Error('Missing selection location.');
+            const now = new Date().toISOString();
+            const annotation = {
+              id: makeLocalId('anno'),
+              bookId: book.id,
+              cfiRange: String(body.cfiRange),
+              text: String(body.text || '').slice(0, 3000),
+              note: String(body.note || '').slice(0, 3000),
+              color: String(body.color || '#f4b26b'),
+              type: ['highlight', 'textColor', 'underline'].includes(body.type) ? body.type : 'highlight',
+              createdAt: now,
+              updatedAt: now,
+            };
+            library.annotations.unshift(annotation);
+            sendJson(res, { success: true, annotation, library: writeEpubLibrary(library) });
+            return;
+          }
+
+          const annotationMatch = route.match(/^\/annotation\/([^/]+)$/);
+          if (annotationMatch && req.method === 'DELETE') {
+            const library = readEpubLibrary();
+            library.annotations = library.annotations.filter((item) => item.id !== annotationMatch[1]);
+            sendJson(res, { success: true, library: writeEpubLibrary(library) });
             return;
           }
 
@@ -976,6 +1331,65 @@ function updatePlugin() {
 }
 
 // ---------------------------------------------------------------------------
+// Plugin: local system maintenance endpoint
+// POST /api/system/desktop-launcher  → refresh desktop launcher/shortcut
+// ---------------------------------------------------------------------------
+function refreshDesktopLauncher(root) {
+  if (process.platform === 'win32') {
+    const script = path.join(root, 'scripts', 'refresh-windows-shortcut.mjs');
+    if (!fs.existsSync(script)) throw new Error('Windows shortcut helper was not found.');
+    return execFileSync(process.execPath, [script], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 30000,
+      windowsHide: true,
+    });
+  }
+
+  if (process.platform === 'darwin') {
+    const script = path.join(root, 'scripts', 'refresh-macos-launcher.sh');
+    if (!fs.existsSync(script)) throw new Error('macOS launcher helper was not found.');
+    return execFileSync('bash', [script, root], {
+      cwd: root,
+      encoding: 'utf8',
+      timeout: 30000,
+    });
+  }
+
+  throw new Error(`Desktop launcher refresh is not supported on ${process.platform}.`);
+}
+
+function systemPlugin() {
+  return {
+    name: 'plantrace-system',
+    configureServer(server) {
+      server.middlewares.use('/api/system/desktop-launcher', (req, res) => {
+        if (req.method !== 'POST') {
+          sendJson(res, { success: false, error: 'Method not allowed.' }, 405);
+          return;
+        }
+
+        try {
+          const root = path.resolve('.');
+          const output = refreshDesktopLauncher(root);
+          sendJson(res, {
+            success: true,
+            platform: process.platform,
+            message: output || 'Desktop launcher refreshed.',
+          });
+        } catch (err) {
+          sendJson(res, {
+            success: false,
+            platform: process.platform,
+            error: err.message || 'Desktop launcher refresh failed.',
+          }, 500);
+        }
+      });
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Vite config
 // ---------------------------------------------------------------------------
 export default defineConfig({
@@ -991,5 +1405,5 @@ export default defineConfig({
       ],
     },
   },
-  plugins: [react(), tailwindcss(), dataPlugin(), backupPlugin(), updatePlugin()],
+  plugins: [react(), tailwindcss(), dataPlugin(), epubPlugin(), backupPlugin(), updatePlugin(), systemPlugin()],
 })

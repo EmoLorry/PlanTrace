@@ -70,7 +70,7 @@ foreach ($Desktop in @($DesktopCandidates | Select-Object -Unique)) {
         $Created += 1
         Write-Host "PlanTrace desktop shortcut refreshed: $ShortcutPath"
     } catch {
-        Write-Host "PlanTrace desktop shortcut skipped at ${Desktop}: $($_.Exception.Message)"
+        Write-Host "PlanTrace desktop shortcut skipped at $($Desktop): $($_.Exception.Message)"
     }
 }
 if ($Created -eq 0) { exit 1 }

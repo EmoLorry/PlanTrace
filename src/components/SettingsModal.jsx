@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Globe2, RotateCcw, Settings, X } from 'lucide-react';
+import { Globe2, History as HistoryIcon, MonitorUp, RotateCcw, Settings, X } from 'lucide-react';
 import {
     COMMON_TIMEZONES,
     DEFAULT_TIMEZONE,
@@ -9,6 +9,7 @@ import {
     saveAppSettings,
 } from '../store/settingsStore.js';
 import { flushStorageWrites } from '../store/storage.js';
+import { APP_VERSION, normalizeManifest } from '../store/versionStore.js';
 
 const LANGUAGE_OPTIONS = [
     { value: 'zh-CN', label: '简体中文' },
@@ -18,6 +19,13 @@ const LANGUAGE_OPTIONS = [
 function getTimezoneLabel(timezone) {
     const preset = COMMON_TIMEZONES.find((item) => item.value === timezone);
     return preset ? preset.label : timezone;
+}
+
+function formatReleaseDate(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return dateStr;
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 export default function SettingsModal({ onClose }) {
@@ -35,6 +43,10 @@ export default function SettingsModal({ onClose }) {
     );
     const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
+    const [shortcutStatus, setShortcutStatus] = useState({ state: 'idle', message: '' });
+    const [showVersionHistory, setShowVersionHistory] = useState(false);
+    const [versionHistory, setVersionHistory] = useState([]);
+    const [versionHistoryStatus, setVersionHistoryStatus] = useState('idle');
 
     const effectiveTimezone = customTimezone.trim() || timezone;
     const hasChanges = (
@@ -82,13 +94,57 @@ export default function SettingsModal({ onClose }) {
         window.location.reload();
     };
 
+    const handleCreateDesktopLauncher = async () => {
+        setShortcutStatus({ state: 'loading', message: '正在刷新桌面入口...' });
+        try {
+            const res = await fetch('/api/system/desktop-launcher', { method: 'POST' });
+            const payload = await res.json().catch(() => ({}));
+            if (!res.ok || payload.success === false) {
+                throw new Error(payload.error || '桌面入口创建失败。');
+            }
+            setShortcutStatus({
+                state: 'success',
+                message: payload.platform === 'darwin'
+                    ? '已刷新桌面 PlanTrace.app 和备用 .command。'
+                    : '已刷新桌面 PlanTrace 快捷方式。',
+            });
+        } catch (err) {
+            setShortcutStatus({
+                state: 'error',
+                message: err.message || '桌面入口创建失败，请稍后再试。',
+            });
+        }
+    };
+
+    const loadVersionHistory = async () => {
+        setVersionHistoryStatus('loading');
+        try {
+            const res = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (!res.ok) throw new Error('无法读取本地版本记录。');
+            const manifest = normalizeManifest(await res.json());
+            setVersionHistory(Array.isArray(manifest.history) ? manifest.history : []);
+            setVersionHistoryStatus('ready');
+        } catch (err) {
+            setVersionHistory([]);
+            setVersionHistoryStatus(err.message || 'error');
+        }
+    };
+
+    const handleToggleVersionHistory = () => {
+        const next = !showVersionHistory;
+        setShowVersionHistory(next);
+        if (next && versionHistoryStatus === 'idle') {
+            loadVersionHistory();
+        }
+    };
+
     return (
         <div
             className="fixed inset-0 z-[130] flex items-center justify-center bg-black/30 backdrop-blur-md"
             onClick={onClose}
         >
             <div
-                className="w-[520px] max-w-[calc(100vw-32px)] rounded-2xl shadow-2xl border overflow-hidden"
+                className="w-[620px] max-w-[calc(100vw-32px)] max-h-[88vh] rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
                 style={{
                     background: 'var(--th-modal-bg)',
                     borderColor: 'var(--th-glass-border)',
@@ -123,7 +179,7 @@ export default function SettingsModal({ onClose }) {
                     </button>
                 </div>
 
-                <div className="p-5 space-y-5">
+                <div className="p-5 space-y-5 overflow-y-auto">
                     <section className="space-y-3">
                         <div className="flex items-center gap-2 text-sm font-semibold">
                             <Globe2 size={16} style={{ color: 'var(--color-accent)' }} />
@@ -208,6 +264,95 @@ export default function SettingsModal({ onClose }) {
                         <p className="text-xs leading-5" style={{ color: 'var(--color-text-muted)' }}>
                             语言设置已封装为独立偏好项；完整英文界面可以后续逐步接入，不影响当前中文体验。
                         </p>
+                    </section>
+
+                    <section className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold">
+                            <MonitorUp size={16} style={{ color: 'var(--color-accent)' }} />
+                            <span>本机维护</span>
+                        </div>
+                        <div
+                            className="rounded-2xl border p-3 space-y-3"
+                            style={{ borderColor: 'var(--th-divider)', background: 'var(--th-glass-subtle-bg)' }}
+                        >
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <div className="text-sm font-semibold">桌面入口</div>
+                                    <p className="mt-1 text-xs leading-5" style={{ color: 'var(--color-text-muted)' }}>
+                                        Windows 会刷新桌面快捷方式；macOS 会刷新桌面 PlanTrace.app 和备用启动文件。
+                                    </p>
+                                </div>
+                                <button
+                                    className="rounded-xl px-3 py-2 text-xs font-semibold text-white transition-all disabled:opacity-60"
+                                    style={{ background: 'var(--color-accent)' }}
+                                    onClick={handleCreateDesktopLauncher}
+                                    disabled={shortcutStatus.state === 'loading'}
+                                >
+                                    {shortcutStatus.state === 'loading' ? '处理中...' : '添加/刷新桌面入口'}
+                                </button>
+                            </div>
+                            {shortcutStatus.message && (
+                                <div
+                                    className="rounded-xl border px-3 py-2 text-xs"
+                                    style={{
+                                        borderColor: shortcutStatus.state === 'error' ? 'rgba(248,113,113,0.35)' : 'var(--th-divider)',
+                                        color: shortcutStatus.state === 'error' ? '#ef4444' : 'var(--color-text-secondary)',
+                                    }}
+                                >
+                                    {shortcutStatus.message}
+                                </div>
+                            )}
+                        </div>
+
+                        <div
+                            className="rounded-2xl border p-3 space-y-3"
+                            style={{ borderColor: 'var(--th-divider)', background: 'var(--th-glass-subtle-bg)' }}
+                        >
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <div className="text-sm font-semibold">历史版本</div>
+                                    <p className="mt-1 text-xs leading-5" style={{ color: 'var(--color-text-muted)' }}>
+                                        当前版本：v{APP_VERSION}。这里读取本地版本清单，不需要连接 GitHub。
+                                    </p>
+                                </div>
+                                <button
+                                    className="inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all hover:bg-[var(--th-hover)]"
+                                    style={{ color: 'var(--color-accent)' }}
+                                    onClick={handleToggleVersionHistory}
+                                >
+                                    <HistoryIcon size={14} />
+                                    {showVersionHistory ? '收起' : '查看历史版本'}
+                                </button>
+                            </div>
+
+                            {showVersionHistory && (
+                                <div className="max-h-72 overflow-y-auto pr-1 space-y-3">
+                                    {versionHistoryStatus === 'loading' && (
+                                        <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>正在读取版本记录...</div>
+                                    )}
+                                    {versionHistoryStatus !== 'loading' && versionHistoryStatus !== 'ready' && (
+                                        <div className="text-xs text-red-500">{versionHistoryStatus}</div>
+                                    )}
+                                    {versionHistoryStatus === 'ready' && versionHistory.map((entry) => (
+                                        <div key={entry.version} className="border-t pt-3" style={{ borderColor: 'var(--th-divider)' }}>
+                                            <div className="flex items-center justify-between gap-3">
+                                                <span className="text-xs font-bold">v{entry.version}</span>
+                                                <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                                                    {formatReleaseDate(entry.releaseDate)}
+                                                </span>
+                                            </div>
+                                            {entry.releaseNotes?.length > 0 && (
+                                                <ul className="mt-2 list-disc pl-4 text-xs leading-5" style={{ color: 'var(--color-text-secondary)' }}>
+                                                    {entry.releaseNotes.map((note, index) => (
+                                                        <li key={`${entry.version}-${index}`}>{note}</li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </section>
 
                     {error && (

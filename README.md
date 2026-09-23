@@ -4,7 +4,7 @@
 >
 > A beautiful local-first task manager with atomic timer, diary, and weekly schedule visualization.
 
-![version](https://img.shields.io/badge/版本-v1.10.1-blueviolet)
+![version](https://img.shields.io/badge/版本-v1.12.0-blueviolet)
 ![react](https://img.shields.io/badge/React-19-61dafb)
 ![vite](https://img.shields.io/badge/Vite-7-646cff)
 ![tailwind](https://img.shields.io/badge/Tailwind_CSS-v4-06b6d4)
@@ -53,7 +53,9 @@
 
 ```
 日记功能
+├── 精简月历：按月翻页查看每天是否有主日记、碎碎念数量，并可点击切换日期
 ├── 主日记栏：自由编辑文本，随主题色变化
+├── 书写体验：字号、行距、纸面/暖页/雾灰/夜读背景
 ├── 碎碎念：带颜色标签的独立随笔块
 │   ├── 8种颜色可选
 │   ├── 成立时间精确记录（只显示，不可修改）
@@ -62,6 +64,21 @@
 ├── 800ms 防抖自动保存
 └── 统一存储到项目 data/diary/ 目录
     每日文件：diary-YYYY-MM-DD.json
+```
+
+### 📖 本地 EPUB 阅读器
+
+```
+阅读器
+├── 导入本机 .epub 文件
+├── 自建书架并给书籍归类
+├── 中央分页阅读，支持上一页 / 下一页 / 左右方向键
+├── 阅读体验：字号、行距、纸面/暖页/雾灰/夜读背景
+├── 选中文字后可标色、写笔记
+├── 精选段落可一键导入今日日记碎碎念
+└── 统一存储到项目 data/epub/ 目录
+    ├── books/      EPUB 文件
+    └── library.json 书架、进度、批注、笔记
 ```
 
 ### 📅 周日程视图
@@ -107,6 +124,15 @@
 ├── 一键更新：自动下载、解压、替换代码文件、npm install
 │   全程实时进度日志展示
 └── 可跳过指定版本（永不再提示该版本）
+```
+
+### ⚙️ 设置与本机维护
+
+```
+设置页
+├── 语言 / 应用时区偏好
+├── 添加/刷新桌面入口（Windows 快捷方式 / macOS PlanTrace.app）
+└── 历史版本记录（读取本地 version.json，可离线查看）
 ```
 
 ---
@@ -242,7 +268,8 @@ PlanTrace/
 │   └── mobile.html             # 单文件手机端 PlanTrace（导入 Mobile Sync / Backup Data）
 ├── data/                       # 本地用户数据（自动创建，不提交）
 │   ├── plantrace-data.json      # 任务 / 日志 / 原子钟 / 主题等应用数据
-│   └── diary/                   # 每日主日记 + 碎碎念 JSON 文件
+│   ├── diary/                   # 每日主日记 + 碎碎念 JSON 文件
+│   └── epub/                    # EPUB 书架、书籍文件、阅读进度、批注
 ├── backups/                    # 导出的 JSON 备份（自动创建）
 ├── Wechat_APP/                 # 微信小程序本地版（微信本地存储 + JSON 双向合并）
 ├── Install-PlanTrace-From-GitHub-Windows.bat # Windows 一键安装
@@ -265,6 +292,8 @@ PlanTrace/
     │   ├── diaryStore.js       # 日记 data/diary 文件存储 + 旧目录导入
     │   ├── versionStore.js     # 版本检测（远端拉取 + 超时 + 冷却）
     │   └── onboardingStore.js  # 新手指引显示状态
+    ├── modules/
+    │   └── reader/             # 本地 EPUB 阅读器（UI + data/epub API client）
     └── components/
         ├── Sidebar.jsx         # 日期卡片、状态点、导航
         ├── Toolbar.jsx         # 日期标题 + 添加任务
@@ -272,6 +301,7 @@ PlanTrace/
         ├── TaskList.jsx        # 任务列表
         ├── AtomicTimer.jsx     # 原子时钟卡片（指针动画）
         ├── DiaryModal.jsx      # 日记弹窗（紧凑/全屏）
+        ├── TextExperienceControls.jsx # 阅读/书写排版体验控件
         ├── WeekView.jsx        # 周日程时间轴
         ├── UpdateModal.jsx     # 版本更新弹窗（含一键更新进度）
         ├── OnboardingModal.jsx # 首次启动新手指引
@@ -317,6 +347,7 @@ PlanTrace/
 用户数据存储位置：
 ├── 任务 / 日志 / 专注记录 / 主题  →  项目 data/plantrace-data.json
 ├── 日记文件                    →  项目 data/diary/ 目录
+├── EPUB 阅读器                 →  项目 data/epub/ 目录
 ├── 浏览器 LocalStorage          →  仅作为旧数据自动迁移来源
 └── Backup Data 完整备份        →  项目 backups/ 目录
                                plantrace_backup_2026-09-19.json

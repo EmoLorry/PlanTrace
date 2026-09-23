@@ -74,10 +74,27 @@ INSTALL_DIR="$INSTALL_ROOT/$APP_NAME"
 TMP_ROOT="${TMPDIR:-/tmp}/plantrace-install-$$"
 ZIP_PATH="$TMP_ROOT/source.zip"
 EXTRACT_DIR="$TMP_ROOT/extract"
-PRESERVE_DIR="$TMP_ROOT/preserve"
+PRESERVE_DIR="$INSTALL_ROOT/${APP_NAME}-user-data-preserve-$(date +%s)-$$"
 
 cleanup() {
+  local status=$?
   rm -rf "$TMP_ROOT"
+  if [[ "$status" -eq 0 ]]; then
+    rm -rf "$PRESERVE_DIR"
+    return
+  fi
+
+  if [[ -d "$PRESERVE_DIR" ]]; then
+    mkdir -p "$INSTALL_DIR"
+    for name in backups data; do
+      if [[ -d "$PRESERVE_DIR/$name" ]]; then
+        rm -rf "$INSTALL_DIR/$name"
+        cp -R "$PRESERVE_DIR/$name" "$INSTALL_DIR/$name"
+      fi
+    done
+    printf '\nExisting user data was restored after install failure.\n' >&2
+    printf 'A safety copy was kept at: %s\n' "$PRESERVE_DIR" >&2
+  fi
 }
 trap cleanup EXIT
 
@@ -109,6 +126,7 @@ cp -R "$SOURCE_DIR"/. "$INSTALL_DIR"/
 
 for name in backups data; do
   if [[ -d "$PRESERVE_DIR/$name" ]]; then
+    rm -rf "$INSTALL_DIR/$name"
     cp -R "$PRESERVE_DIR/$name" "$INSTALL_DIR/$name"
   fi
 done
