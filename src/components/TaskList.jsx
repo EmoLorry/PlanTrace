@@ -1,15 +1,21 @@
 import TaskItem from './TaskItem.jsx';
 import { ClipboardList } from 'lucide-react';
+import { getAllLogs } from '../store/actionLogStore.js';
+import { isTaskCompletedOnDate } from '../store/taskStore.js';
 
 export default function TaskList({ tasks, selectedDate, onComplete, onEditContent, onTimerStop, onDelete }) {
+    const logs = getAllLogs();
+    const isCompletedOnSelectedDate = (task) => isTaskCompletedOnDate(task, selectedDate, logs);
     const sorted = [...tasks].sort((a, b) => {
-        if (a.status === 'completed' && b.status !== 'completed') return 1;
-        if (a.status !== 'completed' && b.status === 'completed') return -1;
+        const aCompleted = isCompletedOnSelectedDate(a);
+        const bCompleted = isCompletedOnSelectedDate(b);
+        if (aCompleted && !bCompleted) return 1;
+        if (!aCompleted && bCompleted) return -1;
         return a.created_at - b.created_at;
     });
 
-    const pendingCount = sorted.filter((t) => t.status === 'pending').length;
-    const completedCount = sorted.filter((t) => t.status === 'completed').length;
+    const pendingCount = sorted.filter((task) => !isCompletedOnSelectedDate(task)).length;
+    const completedCount = sorted.filter((task) => isCompletedOnSelectedDate(task)).length;
 
     if (sorted.length === 0) {
         return (

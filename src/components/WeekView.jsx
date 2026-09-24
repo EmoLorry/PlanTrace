@@ -17,6 +17,7 @@ import {
 // ---------------------------------------------------------------------------
 const HOUR_H   = 64;  // px per hour — 30min = 32px, 15min = 16px
 const HEADER_H = 68;  // sticky day-header height
+const MIN_BLOCK_H = 22; // minimum visible height for very short sessions
 const DATE_MEMBERSHIP_ACTIONS = new Set(['CREATE', 'ROLLOVER', 'DELETE']);
 
 // ---------------------------------------------------------------------------
@@ -118,23 +119,92 @@ function calcTimeRange(weekDates, blockMap) {
 // ---------------------------------------------------------------------------
 // Overlap layout algorithm
 // ---------------------------------------------------------------------------
-function layoutBlocks(blocks) {
-    if (!blocks.length) return [];
-    const sorted = [...blocks].sort((a, b) => a.startMs - b.startMs);
+function getVisualEndMs(block) {
+    const actualDurationMs = Math.max(0, block.endMs - block.startMs);
+    const minDurationMs = (MIN_BLOCK_H / HOUR_H) * 3600000;
+    return block.startMs + Math.max(actualDurationMs, minDurationMs);
+}
+
+function getOverlapClusters(sortedBlocks) {
+    const clusters = [];
+    let current = [];
+    let currentEnd = -Infinity;
+
+    for (const block of sortedBlocks) {
+        const visualEndMs = getVisualEndMs(block);
+        if (!current.length || block.startMs < currentEnd) {
+            current.push(block);
+            currentEnd = Math.max(currentEnd, visualEndMs);
+        } else {
+            clusters.push(current);
+            current = [block];
+            currentEnd = visualEndMs;
+        }
+    }
+
+    if (current.length) clusters.push(current);
+    return clusters;
+}
+
+function layoutCluster(cluster) {
+    if (cluster.length === 1) {
+        return [{ ...cluster[0], lane: 0, totalCols: 1 }];
+    }
+
     const laneEnds = [];
-    const withLane = sorted.map((block) => {
-        let lane = laneEnds.findIndex((e) => block.startMs >= e);
-        if (lane === -1) { lane = laneEnds.length; laneEnds.push(block.endMs); }
-        else laneEnds[lane] = block.endMs;
+    const laid = cluster.map((block) => {
+        const visualEndMs = getVisualEndMs(block);
+        let lane = laneEnds.findIndex((endMs) => block.startMs >= endMs);
+        if (lane === -1) {
+            lane = laneEnds.length;
+            laneEnds.push(visualEndMs);
+        } else {
+            laneEnds[lane] = visualEndMs;
+        }
         return { ...block, lane };
     });
-    return withLane.map((block) => {
-        const concurrent = withLane.filter(
-            (b) => b.startMs < block.endMs && b.endMs > block.startMs
-        );
-        const totalCols = Math.max(...concurrent.map((b) => b.lane)) + 1;
-        return { ...block, totalCols };
-    });
+
+    const totalCols = Math.max(1, laneEnds.length);
+    return laid.map((block) => ({ ...block, totalCols }));
+}
+
+function layoutBlocks(blocks) {
+    if (!blocks.length) return [];
+    const sorted = [...blocks].sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+    return getOverlapClusters(sorted)
+        .flatMap(layoutCluster)
+        .sort((a, b) => a.startMs - b.startMs || a.lane - b.lane);
+}
+
+function getUnionDuration(blocks) {
+    if (!blocks.length) return 0;
+    const intervals = blocks
+        .filter((block) => block.endMs > block.startMs)
+        .map((block) => ({ startMs: block.startMs, endMs: block.endMs }))
+        .sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+
+    let totalMs = 0;
+    let currentStart = null;
+    let currentEnd = null;
+
+    for (const interval of intervals) {
+        if (currentStart === null) {
+            currentStart = interval.startMs;
+            currentEnd = interval.endMs;
+            continue;
+        }
+
+        if (interval.startMs <= currentEnd) {
+            currentEnd = Math.max(currentEnd, interval.endMs);
+        } else {
+            totalMs += currentEnd - currentStart;
+            currentStart = interval.startMs;
+            currentEnd = interval.endMs;
+        }
+    }
+
+    if (currentStart !== null) totalMs += currentEnd - currentStart;
+    return Math.floor(totalMs / 1000);
 }
 
 // ---------------------------------------------------------------------------
@@ -235,23 +305,27 @@ function TimeBlock({ block, dateStr, isAtomic, startHour }) {
     const hPx   = secToH(block.duration);
     const topPx = msToTop(block.startMs, dateStr, startHour);
 
-    const TINY  = 22; // < 22px → pill only
+    const TINY  = MIN_BLOCK_H; // < 22px pill only
     const SHORT = 38; // 22–38px → label only
 
     const fmt = (ms) => {
         return formatTimeBJ(ms);
     };
 
-    const colWidth = `${100 / block.totalCols}%`;
-    const colLeft  = `${(100 / block.totalCols) * block.lane}%`;
+    const totalCols = Math.max(1, block.totalCols || 1);
+    const colWidth = `${100 / totalCols}%`;
+    const colLeft  = `${(100 / totalCols) * (block.lane || 0)}%`;
     const visH     = Math.max(hPx, TINY);
+    const horizontalStyle = totalCols > 1
+        ? { left: `calc(${colLeft} + 2px)`, width: `calc(${colWidth} - 4px)` }
+        : { left: '6px', width: 'calc(100% - 12px)' };
 
     return (
         <div
             className="wv-block"
             style={{
                 top: `${topPx}px`, height: `${visH}px`,
-                left: colLeft, width: `calc(${colWidth} - 2px)`,
+                ...horizontalStyle,
                 background: col.bg, borderColor: col.border, color: col.text,
             }}
             title={`${block.label}\n${fmt(block.startMs)} → ${fmt(block.endMs)}\n${fmtDuration(block.duration)}`}
@@ -274,7 +348,7 @@ function TimeBlock({ block, dateStr, isAtomic, startHour }) {
 // ---------------------------------------------------------------------------
 function DayColumn({ dateStr, weekdayLabel, isToday, mode, startHour, rangeH, blocks }) {
     const laid = useMemo(() => layoutBlocks(blocks), [blocks]);
-    const totalSec = blocks.reduce((s, b) => s + b.duration, 0);
+    const totalSec = useMemo(() => getUnionDuration(blocks), [blocks]);
     const monthDay = dateStr.slice(5);
 
     return (
@@ -323,7 +397,7 @@ export default function WeekView({ initialDate, onClose }) {
     // Weekly total
     const weekTotal = useMemo(() => weekDates.reduce((sum, d) => {
         const blocks = getDateBlocks(blockMap, d);
-        return sum + blocks.reduce((s, b) => s + b.duration, 0);
+        return sum + getUnionDuration(blocks);
     }, 0), [weekDates, blockMap]);
 
     const firstDate  = parseDateStr(weekDates[0]);

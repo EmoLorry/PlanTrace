@@ -33,14 +33,25 @@ function hasCompleteLogOnDate(taskId, dateStr, logs) {
     );
 }
 
-function taskCompletedOnDate(task, dateStr, logs) {
-    if (hasCompleteLogOnDate(task.id, dateStr, logs)) return true;
-    if (task.completed_at && getDateBJFromTimestamp(task.completed_at) === dateStr) return true;
+function hasCompleteLog(taskId, logs) {
+    return logs.some((log) => log.task_id === taskId && log.action_type === 'COMPLETE');
+}
 
-    const hasAnyCompleteLog = logs.some(
-        (log) => log.task_id === task.id && log.action_type === 'COMPLETE'
-    );
-    return task.status === 'completed' && !task.completed_at && !hasAnyCompleteLog;
+function getFirstCompleteTimestamp(taskId, logs) {
+    const timestamps = logs
+        .filter((log) => log.task_id === taskId && log.action_type === 'COMPLETE')
+        .map((log) => Number(log.timestamp) || 0)
+        .filter(Boolean);
+    return timestamps.length ? Math.min(...timestamps) : null;
+}
+
+export function isTaskCompleted(task, logs = getAllLogs()) {
+    if (!task || task.status === 'deleted') return false;
+    return task.status === 'completed' || Boolean(task.completed_at) || hasCompleteLog(task.id, logs);
+}
+
+export function isTaskCompletedOnDate(task, dateStr, logs = getAllLogs()) {
+    return Boolean(dateStr) && isTaskCompleted(task, logs);
 }
 
 /**
@@ -107,25 +118,48 @@ export function editTaskContent(taskId, newContent) {
 }
 
 /**
- * Complete a task (only allowed on today BJ)
+ * Complete the task globally, while keeping the clicked date in the action log.
  */
-export function completeTask(taskId) {
-    const todayStr = getTodayBJ();
+export function completeTask(taskId, dateStr = getTodayBJ()) {
+    const targetDate = dateStr || getTodayBJ();
     const tasks = getAllTasks();
     const idx = tasks.findIndex((t) => t.id === taskId);
     if (idx === -1) return null;
 
-    tasks[idx].status = 'completed';
-    tasks[idx].completed_at = Date.now();
+    const task = tasks[idx];
+    normalizeActiveDates(task);
+    let logs = getAllLogs();
+
+    // Convert old single completed_at data into an immutable per-date log
+    // before switching this task to date-aware completion.
+    if (task.completed_at) {
+        const legacyDate = getDateBJFromTimestamp(task.completed_at);
+        if (task.active_dates.includes(legacyDate) && !hasCompleteLogOnDate(task.id, legacyDate, logs)) {
+            appendLog({
+                task_id: taskId,
+                action_type: 'COMPLETE',
+                target_date: legacyDate,
+                timestamp: task.completed_at,
+            });
+            logs = getAllLogs();
+        }
+    }
+
+    if (!hasCompleteLogOnDate(task.id, targetDate, logs)) {
+        appendLog({
+            task_id: taskId,
+            action_type: 'COMPLETE',
+            target_date: targetDate,
+        });
+        logs = getAllLogs();
+    }
+
+    task.status = 'completed';
+    task.completed_at = Date.now();
+
     saveTasks(tasks);
 
-    appendLog({
-        task_id: taskId,
-        action_type: 'COMPLETE',
-        target_date: todayStr,
-    });
-
-    return tasks[idx];
+    return task;
 }
 
 /**
@@ -269,9 +303,10 @@ export function getPendingRolloverCandidates() {
     const past7 = getPastDaysBJ(7);
     const todayStr = getTodayBJ();
     const allTasks = getAllTasks();
+    const logs = getAllLogs();
 
     return allTasks.filter((t) => {
-        if (t.status !== 'pending') return false;
+        if (t.status === 'deleted' || isTaskCompleted(t, logs)) return false;
         // Already active today? skip
         if (t.active_dates.includes(todayStr)) return false;
         // Must have been active on at least one of the past 7 days
@@ -284,7 +319,7 @@ export function getPendingRolloverCandidates() {
  */
 export function getPendingCountForDate(dateStr) {
     const logs = getAllLogs();
-    return getTasksForDate(dateStr).filter((t) => !taskCompletedOnDate(t, dateStr, logs)).length;
+    return getTasksForDate(dateStr).filter((t) => !isTaskCompletedOnDate(t, dateStr, logs)).length;
 }
 
 /**
@@ -301,6 +336,11 @@ export function repairTaskDateIntegrity() {
         normalizeActiveDates(task);
 
         task.active_dates = task.active_dates.filter((dateStr) => !isTaskDateDeleted(task.id, dateStr, logs));
+        if (isTaskCompleted(task, logs) && task.status !== 'completed') {
+            task.status = 'completed';
+            if (!task.completed_at) task.completed_at = getFirstCompleteTimestamp(task.id, logs) || Date.now();
+            changed = true;
+        }
 
         if (task.time_spent && typeof task.time_spent === 'object') {
             for (const [dateStr, seconds] of Object.entries(task.time_spent)) {
@@ -334,7 +374,7 @@ export function getDateStatus(dateStr) {
     const tasks = getTasksForDate(dateStr);
     if (tasks.length === 0) return 'empty';
     const logs = getAllLogs();
-    const hasOpenTask = tasks.some((task) => !taskCompletedOnDate(task, dateStr, logs));
+    const hasOpenTask = tasks.some((task) => !isTaskCompletedOnDate(task, dateStr, logs));
 
     if (!hasOpenTask) return 'all_completed';
     return isPast(dateStr) ? 'historical_incomplete' : 'has_pending';

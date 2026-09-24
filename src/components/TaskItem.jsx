@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Hammer, Trash2, Edit2 } from 'lucide-react';
 import { isToday, formatTimeBJ, getNextMidnightMsBJ, isEndOfDayBJ } from '../store/dateUtils.js';
 import { getHammerCount } from '../store/actionLogStore.js';
-import { getTimeSpent } from '../store/taskStore.js';
+import { getTimeSpent, isTaskCompletedOnDate } from '../store/taskStore.js';
 
 // ---------------------------------------------------------------------------
 // sessionStorage helpers — persist active timer start times across HMR reloads.
@@ -77,8 +77,8 @@ function formatTimerDisplay(totalSeconds) {
 
 export default function TaskItem({ task, selectedDate, onComplete, onEditContent, onTimerStop, onDelete }) {
     const isTodayDate = isToday(selectedDate);
-    const isCompleted = task.status === 'completed';
-    const isPending = task.status === 'pending';
+    const isCompleted = isTaskCompletedOnDate(task, selectedDate);
+    const isPending = task.status !== 'deleted' && !isCompleted;
     const hammerCount = getHammerCount(task.id, selectedDate);
     const savedTimeSpent = getTimeSpent(task.id, selectedDate);
 
@@ -283,10 +283,10 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
     };
 
     const handleComplete = () => {
-        if (!isTodayDate || !isPending) return;
+        if (!isPending) return;
         // Stop timer first if running
         if (isTimerOn) stopTimer();
-        onComplete(task.id);
+        onComplete(task.id, selectedDate);
     };
 
     const handleDelete = () => {
@@ -304,17 +304,15 @@ export default function TaskItem({ task, selectedDate, onComplete, onEditContent
             {/* Status Icon */}
             <button
                 onClick={handleComplete}
-                disabled={!isTodayDate || isCompleted}
+                disabled={isCompleted}
                 className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-all
                     ${isCompleted
                         ? 'text-green cursor-default'
-                        : isTodayDate
-                            ? 'text-text-muted hover:text-accent hover:bg-accent-light cursor-pointer'
-                            : 'text-text-muted/40 cursor-not-allowed'
+                        : 'text-text-muted hover:text-accent hover:bg-accent-light cursor-pointer'
                     }
                 `}
-                title={isCompleted ? '已完成' : isTodayDate ? '点一下完成今日任务' : '只能完成今天的任务'}
-                aria-label={isCompleted ? '已完成' : isTodayDate ? '完成今日任务' : '只能完成今天的任务'}
+                title={isCompleted ? '已完成' : '点一下完成这个任务'}
+                aria-label={isCompleted ? '已完成' : '完成这个任务'}
             >
                 {isCompleted ? <CheckIcon className="w-5 h-5" /> : <PenIcon className="w-5 h-5" />}
             </button>

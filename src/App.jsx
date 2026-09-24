@@ -129,10 +129,10 @@ function AppContent() {
     refresh();
   }, [refresh]);
 
-  const handleComplete = useCallback((taskId) => {
-    completeTask(taskId);
+  const handleComplete = useCallback((taskId, dateStr) => {
+    completeTask(taskId, dateStr || selectedDate);
     refresh();
-  }, [refresh]);
+  }, [selectedDate, refresh]);
 
   const handleTimerStop = useCallback((taskId, session) => {
     const endMs = Number(session?.endMs) || Date.now();

@@ -46,7 +46,7 @@ const steps = [
         demo: 'taskRow',
         eyebrow: '任务行',
         title: '这三个位置最容易混淆',
-        body: '左侧铅笔点一下是完成今日任务；任务文字双击可以改名；右侧 Hammer 用来记录投入，编辑和删除按钮会在悬浮时出现。',
+        body: '左侧铅笔点一下是完成当前日期的任务；任务文字双击可以改名；右侧 Hammer 用来记录今天的实时投入，编辑和删除按钮会在悬浮时出现。',
         accent: 'var(--color-accent)',
     },
     {
@@ -148,7 +148,7 @@ function DemoTaskRow() {
                     <Trash2 size={14} />
                 </div>
             </div>
-            <DemoLabel className="onb-label-complete">点左侧铅笔 = 完成</DemoLabel>
+            <DemoLabel className="onb-label-complete">点左侧铅笔 = 完成当前日期</DemoLabel>
             <DemoLabel className="onb-label-title">双击文字 = 改名</DemoLabel>
             <DemoLabel className="onb-label-hammer">Hammer = 记录投入</DemoLabel>
         </div>
