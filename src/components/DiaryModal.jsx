@@ -391,6 +391,11 @@ export default function DiaryModal({ selectedDate, onDateChange, onClose }) {
     };
 
     const deleteNote = (id) => {
+        const target = diaryRef.current?.notes?.find((note) => note.id === id)
+            || diary.notes.find((note) => note.id === id);
+        const preview = String(target?.text || '').trim().slice(0, 40);
+        const detail = preview ? `\n\n${preview}${String(target?.text || '').length > 40 ? '…' : ''}` : '';
+        if (!window.confirm(`确认删除这条碎碎念吗？${detail}\n\n删除后将从当前日记中移除。`)) return;
         updateDiary((prev) => ({ ...prev, notes: prev.notes.filter((n) => n.id !== id) }));
     };
 

@@ -44,6 +44,16 @@ export function appendLog({ task_id, action_type, target_date, duration_seconds,
     return entry;
 }
 
+export function deleteActionLogById(logId) {
+    const logs = getAllLogs();
+    const index = logs.findIndex((log) => log.log_id === logId);
+    if (index === -1) return null;
+
+    const [deleted] = logs.splice(index, 1);
+    setJSON(LOG_KEY, logs);
+    return deleted;
+}
+
 /**
  * Get all logs for a specific task
  */

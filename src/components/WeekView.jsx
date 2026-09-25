@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { X, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, CalendarDays, Trash2, Clock3 } from 'lucide-react';
 import { getAllLogs } from '../store/actionLogStore.js';
 import { getJSON } from '../store/storage.js';
+import { deleteHammerLog } from '../store/taskStore.js';
 import {
     parseDateStr,
     formatDateBJ,
@@ -19,6 +20,8 @@ const HOUR_H   = 64;  // px per hour — 30min = 32px, 15min = 16px
 const HEADER_H = 68;  // sticky day-header height
 const MIN_BLOCK_H = 22; // minimum visible height for very short sessions
 const DATE_MEMBERSHIP_ACTIONS = new Set(['CREATE', 'ROLLOVER', 'DELETE']);
+const DETAIL_PANEL_W = 276;
+const DETAIL_PANEL_H = 250;
 
 // ---------------------------------------------------------------------------
 // Task color palette — consistent hash → color
@@ -76,6 +79,14 @@ function fmtDuration(secs) {
     const m = Math.floor((secs % 3600) / 60);
     if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
     return `${m}m`;
+}
+
+function getContextPanelPosition(clientX, clientY) {
+    if (typeof window === 'undefined') return { left: clientX, top: clientY };
+    return {
+        left: Math.max(12, Math.min(clientX + 10, window.innerWidth - DETAIL_PANEL_W - 12)),
+        top: Math.max(12, Math.min(clientY + 10, window.innerHeight - DETAIL_PANEL_H - 12)),
+    };
 }
 
 /**
@@ -262,8 +273,10 @@ function buildHammerBlockMap(weekDates) {
             if (!blocks || (!log.target_date && deletedDates.has(taskDateKey(log.task_id, segment.date)))) continue;
             blocks.push({
                 id: `${log.log_id}-${segment.date}-${segment.startMs}`,
+                logId: log.log_id,
                 taskId: log.task_id,
                 label: task?.content || '未知任务',
+                date: segment.date,
                 startMs: segment.startMs,
                 endMs: segment.endMs,
                 duration: segment.durationSeconds,
@@ -287,6 +300,7 @@ function buildAtomicBlockMap(weekDates) {
                 id: `${session.session_id}-${segment.date}-${segment.startMs}`,
                 taskId: session.session_id,
                 label: session.label,
+                date: segment.date,
                 startMs: segment.startMs,
                 endMs: segment.endMs,
                 duration: segment.durationSeconds,
@@ -300,7 +314,7 @@ function buildAtomicBlockMap(weekDates) {
 // ---------------------------------------------------------------------------
 // TimeBlock
 // ---------------------------------------------------------------------------
-function TimeBlock({ block, dateStr, isAtomic, startHour }) {
+function TimeBlock({ block, dateStr, isAtomic, startHour, onContextMenu }) {
     const col   = isAtomic ? atomicColor(block.label) : taskColor(block.taskId);
     const hPx   = secToH(block.duration);
     const topPx = msToTop(block.startMs, dateStr, startHour);
@@ -322,7 +336,10 @@ function TimeBlock({ block, dateStr, isAtomic, startHour }) {
 
     return (
         <div
-            className="wv-block"
+            className={`wv-block ${!isAtomic ? 'wv-block-hammer' : ''}`}
+            onContextMenu={(event) => {
+                if (!isAtomic && onContextMenu) onContextMenu(block, event);
+            }}
             style={{
                 top: `${topPx}px`, height: `${visH}px`,
                 ...horizontalStyle,
@@ -346,7 +363,7 @@ function TimeBlock({ block, dateStr, isAtomic, startHour }) {
 // ---------------------------------------------------------------------------
 // DayColumn
 // ---------------------------------------------------------------------------
-function DayColumn({ dateStr, weekdayLabel, isToday, mode, startHour, rangeH, blocks }) {
+function DayColumn({ dateStr, weekdayLabel, isToday, mode, startHour, rangeH, blocks, onBlockContextMenu }) {
     const laid = useMemo(() => layoutBlocks(blocks), [blocks]);
     const totalSec = useMemo(() => getUnionDuration(blocks), [blocks]);
     const monthDay = dateStr.slice(5);
@@ -363,7 +380,8 @@ function DayColumn({ dateStr, weekdayLabel, isToday, mode, startHour, rangeH, bl
             <div className="wv-day-body" style={{ height: `${rangeH}px` }}>
                 {laid.map((b) => (
                     <TimeBlock key={b.id} block={b} dateStr={dateStr}
-                        isAtomic={mode === 'atomic'} startHour={startHour} />
+                        isAtomic={mode === 'atomic'} startHour={startHour}
+                        onContextMenu={onBlockContextMenu} />
                 ))}
             </div>
         </div>
@@ -373,21 +391,91 @@ function DayColumn({ dateStr, weekdayLabel, isToday, mode, startHour, rangeH, bl
 // ---------------------------------------------------------------------------
 // WeekView — main component
 // ---------------------------------------------------------------------------
+function HammerDetailPanel({ item, onClose, onDelete }) {
+    if (!item?.block) return null;
+    const { block, position } = item;
+
+    return (
+        <div
+            className="wv-detail-panel"
+            style={{ left: `${position.left}px`, top: `${position.top}px` }}
+            onClick={(event) => event.stopPropagation()}
+            onContextMenu={(event) => event.preventDefault()}
+        >
+            <div className="wv-detail-head">
+                <div>
+                    <div className="wv-detail-kicker"><Clock3 size={12} /> Hammer 记录</div>
+                    <div className="wv-detail-title">{block.label}</div>
+                </div>
+                <button className="wv-detail-close" onClick={onClose} aria-label="关闭详情">
+                    <X size={14} />
+                </button>
+            </div>
+
+            <div className="wv-detail-stats">
+                <div className="wv-detail-stat">
+                    <span>日期</span>
+                    <strong>{block.date}</strong>
+                </div>
+                <div className="wv-detail-stat">
+                    <span>时间</span>
+                    <strong>{formatTimeBJ(block.startMs)}–{formatTimeBJ(block.endMs)}</strong>
+                </div>
+                <div className="wv-detail-stat">
+                    <span>时长</span>
+                    <strong>{fmtDuration(block.duration)}</strong>
+                </div>
+            </div>
+
+            <button className="wv-detail-delete" onClick={() => onDelete(block)}>
+                <Trash2 size={14} />
+                删除这段 Hammer
+            </button>
+            <div className="wv-detail-hint">
+                删除后会同步扣除任务累计时长，并刷新周日程。
+            </div>
+        </div>
+    );
+}
+
 export default function WeekView({ initialDate, onClose }) {
     const [anchorDate, setAnchorDate] = useState(initialDate || getTodayBJ());
     const [mode, setMode]             = useState('hammer');
+    const [refreshTick, setRefreshTick] = useState(0);
+    const [detailItem, setDetailItem] = useState(null);
 
     const weekDates = useMemo(() => getWeekDates(anchorDate), [anchorDate]);
     const today     = getTodayBJ();
-    const blockMap = useMemo(() => (
-        mode === 'atomic'
+    const blockMap = useMemo(() => {
+        void refreshTick;
+        return mode === 'atomic'
             ? buildAtomicBlockMap(weekDates)
-            : buildHammerBlockMap(weekDates)
-    ), [weekDates, mode]);
+            : buildHammerBlockMap(weekDates);
+    }, [weekDates, mode, refreshTick]);
 
     const prevWeek = () => setAnchorDate((d) => shiftDate(d, -7));
     const nextWeek = () => setAnchorDate((d) => shiftDate(d, 7));
     const goToday  = () => setAnchorDate(getTodayBJ());
+
+    const handleBlockContextMenu = (block, event) => {
+        if (!block?.logId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDetailItem({
+            block,
+            position: getContextPanelPosition(event.clientX, event.clientY),
+        });
+    };
+
+    const handleDeleteHammerBlock = (block) => {
+        if (!block?.logId) return;
+        const ok = window.confirm(`删除这段 Hammer？\n${block.label}\n${formatTimeBJ(block.startMs)}-${formatTimeBJ(block.endMs)} · ${fmtDuration(block.duration)}`);
+        if (!ok) return;
+
+        deleteHammerLog(block.logId);
+        setDetailItem(null);
+        setRefreshTick((value) => value + 1);
+    };
 
     // Dynamic time range — recalculated when week or mode changes
     const { startHour, endHour } = useMemo(() => calcTimeRange(weekDates, blockMap), [weekDates, blockMap]);
@@ -404,7 +492,7 @@ export default function WeekView({ initialDate, onClose }) {
     const monthLabel = `${firstDate.getFullYear()}年 ${firstDate.getMonth() + 1}月`;
 
     return (
-        <div className="wv-overlay">
+        <div className="wv-overlay" onClick={() => setDetailItem(null)}>
             {/* ── Top bar ── */}
             <div className="wv-topbar">
                 <div className="wv-topbar-left">
@@ -462,11 +550,17 @@ export default function WeekView({ initialDate, onClose }) {
                                 isToday={d === today} mode={mode}
                                 blocks={getDateBlocks(blockMap, d)}
                                 startHour={startHour} rangeH={rangeH}
+                                onBlockContextMenu={handleBlockContextMenu}
                             />
                         ))}
                     </div>
                 </div>
             </div>
+            <HammerDetailPanel
+                item={detailItem}
+                onClose={() => setDetailItem(null)}
+                onDelete={handleDeleteHammerBlock}
+            />
         </div>
     );
 }

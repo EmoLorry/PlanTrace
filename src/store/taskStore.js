@@ -7,7 +7,7 @@ import {
     isPast,
     splitIntervalByBJDate,
 } from './dateUtils.js';
-import { appendLog, getAllLogs, isTaskDateDeleted } from './actionLogStore.js';
+import { appendLog, deleteActionLogById, getAllLogs, isTaskDateDeleted } from './actionLogStore.js';
 
 const TASKS_KEY = 'tasks';
 
@@ -247,6 +247,33 @@ export function recordHammerSession(taskId, startMs, endMs = Date.now()) {
 
     saveTasks(tasks);
     return task;
+}
+
+export function deleteHammerLog(logId) {
+    const logs = getAllLogs();
+    const log = logs.find((entry) => entry.log_id === logId);
+    if (!log || log.action_type !== 'HAMMER') return null;
+
+    const deleted = deleteActionLogById(logId);
+    if (!deleted) return null;
+
+    const duration = Number(deleted.duration_seconds) || 0;
+    const targetDate = deleted.target_date;
+    if (duration > 0 && targetDate) {
+        const tasks = getAllTasks();
+        const task = tasks.find((item) => item.id === deleted.task_id);
+        if (task?.time_spent && typeof task.time_spent === 'object') {
+            const nextSeconds = Math.max(0, Number(task.time_spent[targetDate] || 0) - duration);
+            if (nextSeconds > 0) {
+                task.time_spent[targetDate] = nextSeconds;
+            } else {
+                delete task.time_spent[targetDate];
+            }
+            saveTasks(tasks);
+        }
+    }
+
+    return deleted;
 }
 
 /**

@@ -2796,6 +2796,7 @@
 
 .reader-notes-panel.has-selection .reader-diary-dock {
   min-height: clamp(178px, 21vh, 226px);
+  margin-top: clamp(12px, 2.2vh, 24px);
   margin-bottom: clamp(28px, 7vh, 64px);
 }
 
@@ -3903,6 +3904,146 @@
    WEEK VIEW
    ═══════════════════════════════════════════════════════ */
 
+.manual-hammer-panel {
+  margin: 12px 0 0 40px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-amber) 22%, var(--th-glass-subtle-border));
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--color-amber) 8%, var(--th-glass-subtle-bg)),
+      color-mix(in srgb, var(--th-modal-bg) 82%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
+    0 10px 26px rgba(0,0,0,0.06);
+}
+
+.manual-hammer-panel-head,
+.manual-hammer-summary,
+.manual-hammer-actions {
+  display: flex;
+  align-items: center;
+}
+
+.manual-hammer-panel-head {
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.manual-hammer-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.manual-hammer-title svg { color: var(--color-amber); }
+
+.manual-hammer-date {
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.manual-hammer-summary {
+  width: fit-content;
+  gap: 7px;
+  margin-bottom: 10px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--th-modal-bg) 58%, transparent);
+  border: 1px solid var(--th-glass-subtle-border);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.manual-hammer-summary i {
+  font-style: normal;
+  color: var(--color-amber);
+}
+
+.manual-hammer-summary strong {
+  color: var(--color-amber);
+  font-weight: 900;
+}
+
+.manual-hammer-slider {
+  display: grid;
+  grid-template-columns: 34px minmax(90px, 1fr) 42px;
+  align-items: center;
+  gap: 9px;
+  margin-top: 7px;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+.manual-hammer-slider input {
+  width: 100%;
+  accent-color: var(--color-amber);
+}
+
+.manual-hammer-slider strong {
+  color: var(--color-text-secondary);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.manual-hammer-error {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--color-red);
+}
+
+.manual-hammer-error.subtle {
+  color: var(--color-text-muted);
+}
+
+.manual-hammer-actions {
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.manual-hammer-actions button {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+
+.manual-hammer-actions button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.manual-hammer-cancel {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--th-modal-bg) 62%, transparent);
+  border: 1px solid var(--th-glass-subtle-border);
+}
+
+.manual-hammer-save {
+  color: white;
+  background: var(--color-amber);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--color-amber) 24%, transparent);
+}
+
+.manual-hammer-save:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .wv-overlay {
   position: fixed;
   inset: 0;
@@ -4162,6 +4303,10 @@
   box-shadow: 0 3px 10px rgba(0,0,0,0.14);
 }
 
+.wv-block-hammer {
+  cursor: context-menu;
+}
+
 .wv-block-label {
   font-size: 11.5px;
   font-weight: 700;
@@ -4189,6 +4334,124 @@
   margin-top: 1px;
   overflow: hidden;
   white-space: nowrap;
+}
+
+.wv-detail-panel {
+  position: fixed;
+  z-index: 380;
+  width: 276px;
+  padding: 13px;
+  border-radius: 14px;
+  border: 1px solid var(--th-glass-border);
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--th-modal-bg) 96%, transparent),
+      color-mix(in srgb, var(--th-glass-subtle-bg) 72%, var(--th-modal-bg)));
+  box-shadow: 0 24px 60px rgba(0,0,0,0.18), inset 0 1px 0 color-mix(in srgb, white 30%, transparent);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+}
+
+.wv-detail-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.wv-detail-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-amber);
+  font-size: 10.5px;
+  font-weight: 900;
+}
+
+.wv-detail-title {
+  margin-top: 3px;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.35;
+  max-height: 38px;
+  overflow: hidden;
+}
+
+.wv-detail-close {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.wv-detail-close:hover {
+  background: var(--th-hover);
+  color: var(--color-text-primary);
+}
+
+.wv-detail-stats {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 12px;
+}
+
+.wv-detail-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 9px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--th-modal-bg) 58%, transparent);
+  border: 1px solid var(--th-glass-subtle-border);
+}
+
+.wv-detail-stat span {
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.wv-detail-stat strong {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.wv-detail-delete {
+  width: 100%;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 11px;
+  color: var(--color-red);
+  background: var(--color-red-light);
+  font-size: 12px;
+  font-weight: 850;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.wv-detail-delete:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--color-red) 16%, var(--color-red-light));
+}
+
+.wv-detail-hint {
+  margin-top: 8px;
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+  line-height: 1.45;
 }
 
 /* Onboarding */

@@ -165,6 +165,7 @@ export default function ThemeSwitcher() {
 
     const handleDelete = () => {
         if (!draft.id) return;
+        if (!window.confirm(`确认删除 DIY 主题「${draft.name || '未命名主题'}」吗？\n\n删除后这个自定义主题会从本机主题列表中移除。`)) return;
         deleteCustomTheme(draft.id);
         setDraft(createDraftFromTheme(activeTheme, true));
         setView('themes');

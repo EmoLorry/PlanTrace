@@ -946,6 +946,9 @@ export default function EpubReader({ onClose }) {
     const handleDeleteAnnotation = async (annotationId) => {
         try {
             const target = activeAnnotations.find((annotation) => annotation.id === annotationId);
+            const preview = String(target?.text || '').trim().slice(0, 60);
+            const detail = preview ? `\n\n${preview}${String(target?.text || '').length > 60 ? '…' : ''}` : '';
+            if (!window.confirm(`确认删除这条阅读标注吗？${detail}\n\n删除后会从当前书籍的标注列表中移除。`)) return;
             if (target?.cfiRange) {
                 try { renditionRef.current?.annotations?.remove(target.cfiRange, getAnnotationRenderType(target)); } catch { /* ignore */ }
             }
